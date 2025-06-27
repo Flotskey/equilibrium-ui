@@ -1,47 +1,112 @@
-import React from "react";
-import {Box, Divider, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar} from "@mui/material";
+import ShowChartIcon from '@mui/icons-material/ShowChart';
+import {
+  Box,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Toolbar,
+  Tooltip
+} from "@mui/material";
+import { useState } from "react";
 
-import InboxIcon from '@mui/icons-material/MoveToInbox';
-import MailIcon from '@mui/icons-material/Mail';
+const expandedWidth = 320;
+const collapsedWidth = 80;
 
-const sidebarWidth = 320;
+export const SideBar = ({
+  isCollapsed: externalCollapsed,
+  onToggleCollapse
+}: {
+  isCollapsed?: boolean;
+  onToggleCollapse?: (collapsed: boolean) => void;
+} = {}) => {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const isCollapsed = externalCollapsed ?? internalCollapsed;
 
-export const SideBar = () => {
-    return <Drawer
-        variant="permanent"
-        sx={{
-            width: sidebarWidth,
-            flexShrink: 0,
-            [`& .MuiDrawer-paper`]: { width: sidebarWidth, boxSizing: 'border-box' },
-        }}
+  // Expand on hover
+  const handleMouseEnter = () => {
+    if (onToggleCollapse) {
+      onToggleCollapse(false);
+    } else {
+      setInternalCollapsed(false);
+    }
+  };
+  // Collapse on mouse leave
+  const handleMouseLeave = () => {
+    if (onToggleCollapse) {
+      onToggleCollapse(true);
+    } else {
+      setInternalCollapsed(true);
+    }
+  };
+
+  const navItems = [
+    { text: 'Trading', icon: <ShowChartIcon /> },
+  ];
+
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: isCollapsed ? collapsedWidth : expandedWidth,
+        flexShrink: 0,
+        [`& .MuiDrawer-paper`]: {
+          width: isCollapsed ? collapsedWidth : expandedWidth,
+          boxSizing: 'border-box',
+          overflowX: 'hidden',
+          transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          height: '100vh',
+          zIndex: 1400,
+          background: (theme) => theme.palette.background.default,
+        },
+      }}
+      open
+      slotProps={{
+        paper: {
+          onMouseEnter: handleMouseEnter,
+          onMouseLeave: handleMouseLeave,
+        }
+      }}
     >
+      <Box
+        sx={{
+          width: '100%',
+          height: '100vh',
+          overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          p: 1, // add a little left padding so icon doesn't touch the edge
+        }}
+      >
         <Toolbar />
-        <Box sx={{ overflow: 'auto' }}>
-            <List>
-                {['Inbox', 'Starred', 'Send email', 'Drafts'].map((text, index) => (
-                    <ListItem key={text} disablePadding>
-                        <ListItemButton>
-                            <ListItemIcon>
-                                {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
-                            </ListItemIcon>
-                            <ListItemText primary={text} />
-                        </ListItemButton>
-                    </ListItem>
-                ))}
-            </List>
-            <Divider />
-            <List>
-                {['All mail', 'Trash', 'Spam'].map((text, index) => (
-                    <ListItem key={text} disablePadding>
-                        <ListItemButton>
-                            <ListItemIcon>
-                                {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
-                            </ListItemIcon>
-                            <ListItemText primary={text} />
-                        </ListItemButton>
-                    </ListItem>
-                ))}
-            </List>
+        <Box sx={{ overflow: 'auto', flex: 1 }}>
+          <List>
+            {navItems.map(({ text, icon }) => (
+              <Tooltip key={text} title={isCollapsed ? text : ''} placement="right">
+                <ListItem disablePadding sx={{ display: 'block' }}>
+                  <ListItemButton
+                    sx={{
+                      minHeight: 48,
+                      justifyContent: isCollapsed ? 'center' : 'initial',
+                      px: 2.5,
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 0, mr: isCollapsed ? 'auto' : 2, justifyContent: 'center' }}>
+                      {icon}
+                    </ListItemIcon>
+                    {!isCollapsed && <ListItemText primary={text} />}
+                  </ListItemButton>
+                </ListItem>
+              </Tooltip>
+            ))}
+          </List>
         </Box>
+      </Box>
     </Drawer>
+  );
 }

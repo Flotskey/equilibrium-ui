@@ -1,4 +1,4 @@
-import {AppBar} from "@/app/widgets/AppBar.tsx";
-import {SideBar} from "@/app/widgets/SideBar.tsx";
+import {AppBar} from "@/components/AppBar.tsx";
+import {SideBar} from "@/components/SideBar.tsx";
 
 export {AppBar, SideBar};

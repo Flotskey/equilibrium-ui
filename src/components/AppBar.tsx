@@ -1,17 +1,11 @@
 import {
     AppBar as MuiAppBar,
     Toolbar,
-    Typography,
-    //useColorScheme
-} from '@mui/material'
+    Typography
+} from '@mui/material';
 
 export const AppBar = () => {
-    /*const { mode, setMode } = useColorScheme();
-    if (!mode) {
-        return null;
-    }*/
-
-    return <MuiAppBar position="fixed" color={'primary'} sx={{zIndex: (theme) => theme.zIndex.drawer + 1}}>
+    return <MuiAppBar position="fixed" color={'primary'} sx={{zIndex: 1500}}>
         <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                 Header
