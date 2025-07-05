@@ -66,6 +66,8 @@ const TradingChart = () => {
   const [dragging, setDragging] = useState<null | 'entry' | 'sl' | 'tp'>(null);
   const [handlePositions, setHandlePositions] = useState<{ entry: number; sl: number; tp: number }>({ entry: 0, sl: 0, tp: 0 });
 
+  const dragYRef = useRef<number | null>(null);
+
   // Chart initialization and price lines
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -194,30 +196,29 @@ const TradingChart = () => {
     document.body.style.cursor = 'ns-resize';
   }
   function onDrag(e: React.MouseEvent): void {
-    if (!dragging || !chartRef.current || !candleSeriesRef.current) return;
-    // const rect = chartContainerRef.current!.getBoundingClientRect();
-    // const y = e.clientY - rect.top;
-    // const price = candleSeriesRef.current.coordinateToPrice(y);
-    // if (typeof price === 'number') {
-    //   if (dragging === 'entry') setEntryPrice(Number(price.toFixed(2)));
-    //   if (dragging === 'sl') setSLPrice(Number(price.toFixed(2)));
-    //   if (dragging === 'tp') setTPPrice(Number(price.toFixed(2)));
-    // }
+    if (!dragging || !chartRef.current || !candleSeriesRef.current || !chartContainerRef.current) return;
+    const rect = chartContainerRef.current.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    dragYRef.current = y;
   }
   function onDragEnd(e: React.MouseEvent): void {
-    if (!dragging || !chartRef.current || !candleSeriesRef.current) return;
-    
-    const rect = chartContainerRef.current!.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const price = candleSeriesRef.current.coordinateToPrice(y);
-    if (typeof price === 'number') {
-      if (dragging === 'entry') setEntryPrice(Number(price.toFixed(2)));
-      if (dragging === 'sl') setSLPrice(Number(price.toFixed(2)));
-      if (dragging === 'tp') setTPPrice(Number(price.toFixed(2)));
+    if (!dragging || !chartRef.current || !candleSeriesRef.current || !chartContainerRef.current) {
+      setDragging(null);
+      document.body.style.cursor = '';
+      return;
     }
-
+    const y = dragYRef.current;
+    if (typeof y === 'number') {
+      const price = candleSeriesRef.current.coordinateToPrice(y);
+      if (typeof price === 'number') {
+        if (dragging === 'entry') setEntryPrice(Number(price.toFixed(2)));
+        if (dragging === 'sl') setSLPrice(Number(price.toFixed(2)));
+        if (dragging === 'tp') setTPPrice(Number(price.toFixed(2)));
+      }
+    }
     setDragging(null);
     document.body.style.cursor = '';
+    dragYRef.current = null;
   }
 
   // Sync handle positions on price/resize
@@ -251,21 +252,21 @@ const TradingChart = () => {
         />
         {/* Entry handle */}
         <div
-          style={{ ...handleStyle('green', dragging === 'entry'), top: handlePositions.entry }}
+          style={{ ...handleStyle('green', dragging === 'entry'), top: dragging === 'entry' && dragYRef.current !== null ? dragYRef.current : handlePositions.entry }}
           onMouseDown={e => onDragStart('entry', e)}
         >
           Entry ({entryPrice})
         </div>
         {/* SL handle */}
         <div
-          style={{ ...handleStyle('red', dragging === 'sl'), top: handlePositions.sl }}
+          style={{ ...handleStyle('red', dragging === 'sl'), top: dragging === 'sl' && dragYRef.current !== null ? dragYRef.current : handlePositions.sl }}
           onMouseDown={e => onDragStart('sl', e)}
         >
           SL ({slPrice})
         </div>
         {/* TP handle */}
         <div
-          style={{ ...handleStyle('gold', dragging === 'tp'), top: handlePositions.tp }}
+          style={{ ...handleStyle('gold', dragging === 'tp'), top: dragging === 'tp' && dragYRef.current !== null ? dragYRef.current : handlePositions.tp }}
           onMouseDown={e => onDragStart('tp', e)}
         >
           TP ({tpPrice})

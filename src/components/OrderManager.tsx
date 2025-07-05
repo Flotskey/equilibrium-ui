@@ -1,7 +1,7 @@
 import { Box, Paper, Tab, Tabs } from '@mui/material';
 
 const OrderManager = ({ tab, setTab }: { tab: number, setTab: (v: number) => void }) => (
-  <Paper sx={{ p: 0, minHeight: 400, display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
+  <Paper sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
     <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
       <Tab label="Positions" />
       <Tab label="Open Orders" />
