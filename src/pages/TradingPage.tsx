@@ -1,6 +1,6 @@
-import OrderManager from '@/components/OrdersTabs';
+import OrderManager from '@/components/OrderManager';
 import TradingTopBar from '@/components/TradingTopBar';
-import { Box } from '@mui/material';
+import { Box, Paper } from '@mui/material';
 import Grid2 from '@mui/material/Grid2';
 import { useEffect, useState } from 'react';
 import OrderBook from '../components/OrderBook';
@@ -86,9 +86,11 @@ const TradingPage = () => {
       />
       <Grid2 container spacing={2} sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Grid2 size={7} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, rowGap: '16px' }}>
             <Box sx={{ flex: 6, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              <TradingChart />
+              <Paper sx={{ p: 2, height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} elevation={2}>
+                <TradingChart />
+              </Paper>
             </Box>
             <Box sx={{ flex: 5, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <OrderManager tab={tab} setTab={setTab} />

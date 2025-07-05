@@ -29,7 +29,7 @@ const TradingTopBar: React.FC<TradingTopBarProps> = ({
   pairsForExchange,
   onPairChange,
 }) => (
-  <Paper sx={{ mb: 1, p: 2, borderRadius: 2, minHeight: 56, display: 'flex', alignItems: 'center', gap: 2 }} elevation={1}>
+  <Paper sx={{ mb: 1, p: 1, borderRadius: 2, minHeight: 40, display: 'flex', alignItems: 'center', gap: 2 }} elevation={1}>
     <Autocomplete
       options={exchangeOptions}
       value={selectedExchange}
