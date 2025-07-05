@@ -1,3 +1,5 @@
+import type { TradingChartState } from '@/store/tradingChartStore';
+import { useTradingChartStore } from '@/store/tradingChartStore';
 import { Box, Button, ButtonGroup } from '@mui/material';
 import {
   CandlestickData,
@@ -12,6 +14,9 @@ import {
   WhitespaceData,
 } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
+import EntryHandle from './EntryHandle';
+import SLHandle from './SLHandle';
+import TPHandle from './TPHandle';
 
 const data = [
   { time: '2024-06-01', open: 67000, high: 67500, low: 66500, close: 67200 },
@@ -25,30 +30,6 @@ const data = [
 
 const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', 'D', 'W', 'M'];
 
-const initialEntry = 67800;
-const initialSL = 67400;
-const initialTP = 68400;
-
-const handleStyle = (color: string, dragging: boolean): React.CSSProperties => ({
-  position: 'absolute',
-  left: 0,
-  width: '100%',
-  height: '16px',
-  borderRadius: '4px',
-  cursor: 'ns-resize',
-  zIndex: 10,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: '#fff',
-  fontWeight: 600,
-  fontSize: '12px',
-  pointerEvents: 'auto',
-  userSelect: 'none',
-  background: dragging ? `${color}44` : `${color}22`,
-  boxShadow: dragging ? `0 0 8px 2px ${color}88` : undefined,
-});
-
 const TradingChart = () => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -58,15 +39,19 @@ const TradingChart = () => {
   const entryLineRef = useRef<IPriceLine | null>(null);
   const slLineRef = useRef<IPriceLine | null>(null);
   const tpLineRef = useRef<IPriceLine | null>(null);
-
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>('30m');
-  const [entryPrice, setEntryPrice] = useState<number>(initialEntry);
-  const [slPrice, setSLPrice] = useState<number>(initialSL);
-  const [tpPrice, setTPPrice] = useState<number>(initialTP);
-  const [dragging, setDragging] = useState<null | 'entry' | 'sl' | 'tp'>(null);
   const [handlePositions, setHandlePositions] = useState<{ entry: number; sl: number; tp: number }>({ entry: 0, sl: 0, tp: 0 });
-
   const dragYRef = useRef<number | null>(null);
+
+  // Zustand state
+  const entryPrice = useTradingChartStore((s: TradingChartState) => s.entryPrice);
+  const slPrice = useTradingChartStore((s: TradingChartState) => s.slPrice);
+  const tpPrice = useTradingChartStore((s: TradingChartState) => s.tpPrice);
+  const dragging = useTradingChartStore((s: TradingChartState) => s.dragging);
+  const setEntryPrice = useTradingChartStore((s: TradingChartState) => s.setEntryPrice);
+  const setSLPrice = useTradingChartStore((s: TradingChartState) => s.setSLPrice);
+  const setTPPrice = useTradingChartStore((s: TradingChartState) => s.setTPPrice);
+  const setDragging = useTradingChartStore((s: TradingChartState) => s.setDragging);
 
   // Chart initialization and price lines
   useEffect(() => {
@@ -93,11 +78,11 @@ const TradingChart = () => {
     candleSeriesRef.current = candleSeries;
     candleSeries.setData(data);
 
-    // Initial price lines
+    // Initial price lines (Entry: gold, TP: green, SL: red)
     entryLineRef.current = candleSeries.createPriceLine({
       price: entryPrice,
-      color: 'green',
-      lineWidth: 2,
+      color: 'gold',
+      lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
       title: 'Entry',
@@ -105,15 +90,15 @@ const TradingChart = () => {
     slLineRef.current = candleSeries.createPriceLine({
       price: slPrice,
       color: 'red',
-      lineWidth: 2,
+      lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
       title: 'SL',
     });
     tpLineRef.current = candleSeries.createPriceLine({
       price: tpPrice,
-      color: 'gold',
-      lineWidth: 2,
+      color: 'green',
+      lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
       title: 'TP',
@@ -148,11 +133,11 @@ const TradingChart = () => {
     if (entryLineRef.current) candleSeriesRef.current.removePriceLine(entryLineRef.current);
     if (slLineRef.current) candleSeriesRef.current.removePriceLine(slLineRef.current);
     if (tpLineRef.current) candleSeriesRef.current.removePriceLine(tpLineRef.current);
-    // Add new lines
+    // Add new lines (Entry: gold, TP: green, SL: red)
     entryLineRef.current = candleSeriesRef.current.createPriceLine({
       price: entryPrice,
-      color: 'green',
-      lineWidth: 2,
+      color: 'gold',
+      lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
       title: 'Entry',
@@ -160,15 +145,15 @@ const TradingChart = () => {
     slLineRef.current = candleSeriesRef.current.createPriceLine({
       price: slPrice,
       color: 'red',
-      lineWidth: 2,
+      lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
       title: 'SL',
     });
     tpLineRef.current = candleSeriesRef.current.createPriceLine({
       price: tpPrice,
-      color: 'gold',
-      lineWidth: 2,
+      color: 'green',
+      lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
       title: 'TP',
@@ -193,7 +178,7 @@ const TradingChart = () => {
   // Drag logic
   function onDragStart(type: 'entry' | 'sl' | 'tp', e: React.MouseEvent): void {
     setDragging(type);
-    document.body.style.cursor = 'ns-resize';
+    document.body.style.cursor = 'grabbing';
   }
   function onDrag(e: React.MouseEvent): void {
     if (!dragging || !chartRef.current || !candleSeriesRef.current || !chartContainerRef.current) return;
@@ -250,27 +235,27 @@ const TradingChart = () => {
           onMouseUp={dragging ? onDragEnd : undefined}
           onMouseLeave={dragging ? onDragEnd : undefined}
         />
-        {/* Entry handle */}
-        <div
-          style={{ ...handleStyle('green', dragging === 'entry'), top: dragging === 'entry' && dragYRef.current !== null ? dragYRef.current : handlePositions.entry }}
+        <EntryHandle
+          top={dragging === 'entry' && dragYRef.current !== null ? dragYRef.current : handlePositions.entry}
+          dragging={dragging === 'entry'}
           onMouseDown={e => onDragStart('entry', e)}
-        >
-          Entry ({entryPrice})
-        </div>
-        {/* SL handle */}
-        <div
-          style={{ ...handleStyle('red', dragging === 'sl'), top: dragging === 'sl' && dragYRef.current !== null ? dragYRef.current : handlePositions.sl }}
+          price={entryPrice}
+          color="gold"
+        />
+        <SLHandle
+          top={dragging === 'sl' && dragYRef.current !== null ? dragYRef.current : handlePositions.sl}
+          dragging={dragging === 'sl'}
           onMouseDown={e => onDragStart('sl', e)}
-        >
-          SL ({slPrice})
-        </div>
-        {/* TP handle */}
-        <div
-          style={{ ...handleStyle('gold', dragging === 'tp'), top: dragging === 'tp' && dragYRef.current !== null ? dragYRef.current : handlePositions.tp }}
+          price={slPrice}
+          color="red"
+        />
+        <TPHandle
+          top={dragging === 'tp' && dragYRef.current !== null ? dragYRef.current : handlePositions.tp}
+          dragging={dragging === 'tp'}
           onMouseDown={e => onDragStart('tp', e)}
-        >
-          TP ({tpPrice})
-        </div>
+          price={tpPrice}
+          color="green"
+        />
       </Box>
     </Box>
   );

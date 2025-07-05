@@ -1,10 +1,11 @@
 import React from 'react';
 
-interface StopHandleProps {
+interface TPHandleProps {
   top: number;
   dragging: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
   price: number;
+  color?: string;
 }
 
 const handleStyle: React.CSSProperties = {
@@ -14,28 +15,25 @@ const handleStyle: React.CSSProperties = {
   height: '16px',
   borderRadius: '4px',
   cursor: 'ns-resize',
-  zIndex: 20,
+  zIndex: 10,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: '#fff',
   fontWeight: 600,
+  fontSize: '12px',
   pointerEvents: 'auto',
   userSelect: 'none',
-  border: '2px solid red',
 };
 
-const StopHandle: React.FC<StopHandleProps> = ({ top, dragging, onMouseDown, price }) => (
+const TPHandle: React.FC<TPHandleProps> = ({ top, dragging, onMouseDown, price }) => (
   <div
     style={{
       ...handleStyle,
       top: top - 8,
-      background: dragging ? 'rgba(200,0,0,0.4)' : 'rgba(200,0,0,0.2)',
+      cursor: dragging ? 'grabbing' : 'grab',
     }}
     onMouseDown={onMouseDown}
-  >
-    Stop ({price})
-  </div>
+  />
 );
 
-export default StopHandle; 
+export default TPHandle; 

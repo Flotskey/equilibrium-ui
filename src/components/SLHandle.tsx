@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface EntryHandleProps {
+interface SLHandleProps {
   top: number;
   dragging: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
@@ -25,7 +25,7 @@ const handleStyle: React.CSSProperties = {
   userSelect: 'none',
 };
 
-const EntryHandle: React.FC<EntryHandleProps> = ({ top, dragging, onMouseDown, price }) => (
+const SLHandle: React.FC<SLHandleProps> = ({ top, dragging, onMouseDown, price }) => (
   <div
     style={{
       ...handleStyle,
@@ -36,4 +36,4 @@ const EntryHandle: React.FC<EntryHandleProps> = ({ top, dragging, onMouseDown, p
   />
 );
 
-export default EntryHandle; 
+export default SLHandle; 
