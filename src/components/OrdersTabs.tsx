@@ -1,6 +1,6 @@
 import { Box, Paper, Tab, Tabs } from '@mui/material';
 
-const OrdersTabs = ({ tab, setTab }: { tab: number, setTab: (v: number) => void }) => (
+const OrderManager = ({ tab, setTab }: { tab: number, setTab: (v: number) => void }) => (
   <Paper sx={{ p: 0, minHeight: 400, display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
     <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
       <Tab label="Positions" />
@@ -19,4 +19,4 @@ const OrdersTabs = ({ tab, setTab }: { tab: number, setTab: (v: number) => void 
   </Paper>
 );
 
-export default OrdersTabs; 
+export default OrderManager; 

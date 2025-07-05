@@ -1,8 +1,8 @@
-import OrdersTabs from '@/components/OrdersTabs';
+import OrderManager from '@/components/OrdersTabs';
 import TradingTopBar from '@/components/TradingTopBar';
-import { Box, List, ListItem, ListItemButton, ListItemText, Paper, TextField, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import Grid2 from '@mui/material/Grid2';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import OrderBook from '../components/OrderBook';
 import TradingChart from '../components/TradingChart';
 import TradingForm from '../components/TradingForm';
@@ -47,81 +47,53 @@ for (let i = 1; i <= 30; i++) {
   ];
 }
 
+const LOCAL_STORAGE_KEY = 'selectedExchange';
+
 const TradingPage = () => {
   const [tab, setTab] = useState(0);
-  const [selectedExchange, setSelectedExchange] = useState<ExchangeOption | null>(null);
-  const [selectedPair, setSelectedPair] = useState<PairOption | null>(null);
-  const [search, setSearch] = useState('');
-  const [pairOpen, setPairOpen] = useState(false);
+  const [selectedExchange, setSelectedExchange] = useState<ExchangeOption>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return (
+      mockExchanges.find(e => e.value === saved) || mockExchanges[0]
+    );
+  });
+  const [selectedPair, setSelectedPair] = useState<PairOption>(() => mockPairs[mockExchanges[0].value][0]);
 
-  // Filter exchanges by search
-  const filteredExchanges = mockExchanges.filter(e =>
-    e.label.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, selectedExchange.value);
+    setSelectedPair(mockPairs[selectedExchange.value][0]);
+  }, [selectedExchange]);
 
-  // When exchange is selected, set default pair
-  const handleExchangeSelect = (exchange: ExchangeOption) => {
-    setSelectedExchange(exchange);
-    setSelectedPair(mockPairs[exchange.value][0]);
+  const handleExchangeChange = (_event: any, value: ExchangeOption) => {
+    setSelectedExchange(value);
   };
 
-  const handlePairChange = (_event: any, value: PairOption | null) => {
+  const handlePairChange = (_event: any, value: PairOption) => {
     setSelectedPair(value);
   };
 
-  const handleBack = () => {
-    setSelectedExchange(null);
-    setSelectedPair(null);
-  };
+  const pairsForExchange: PairOption[] = mockPairs[selectedExchange.value];
 
-  const pairsForExchange: PairOption[] = selectedExchange ? mockPairs[selectedExchange.value] : [];
-
-  // Exchange list view
-  if (!selectedExchange) {
-    return (
-      <Box sx={{ width: '100%', height: '100%', p: 0, m: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <Paper sx={{ p: 4, minWidth: 480, maxWidth: 700, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }} elevation={3}>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>Select Exchange</Typography>
-          <TextField
-            label="Search Exchange"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            sx={{ width: '100%' }}
-            autoFocus
-          />
-          <List sx={{ width: '100%', maxHeight: 600, overflow: 'auto', mt: 1 }}>
-            {filteredExchanges.map((exchange) => (
-              <ListItem key={exchange.value} disablePadding>
-                <ListItemButton onClick={() => handleExchangeSelect(exchange)}>
-                  <ListItemText primary={exchange.label} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-            {filteredExchanges.length === 0 && (
-              <ListItem>
-                <ListItemText primary="No exchanges found" />
-              </ListItem>
-            )}
-          </List>
-        </Paper>
-      </Box>
-    );
-  }
-
-  // Trading terminal view
   return (
     <Box sx={{ width: '100%', height: '100%', p: 0, m: 0, display: 'flex', flexDirection: 'column' }}>
       <TradingTopBar
+        exchangeOptions={mockExchanges}
         selectedExchange={selectedExchange}
+        onExchangeChange={handleExchangeChange}
         selectedPair={selectedPair}
         pairsForExchange={pairsForExchange}
-        handleBack={handleBack}
-        handlePairChange={handlePairChange}
+        onPairChange={handlePairChange}
       />
       <Grid2 container spacing={2} sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Grid2 size={7} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <TradingChart />
-          <OrdersTabs tab={tab} setTab={setTab} />
+          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <Box sx={{ flex: 6, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <TradingChart />
+            </Box>
+            <Box sx={{ flex: 5, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <OrderManager tab={tab} setTab={setTab} />
+            </Box>
+          </Box>
         </Grid2>
         <Grid2 size={2.5} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
           <OrderBook />

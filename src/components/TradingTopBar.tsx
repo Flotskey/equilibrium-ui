@@ -1,5 +1,4 @@
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Autocomplete, Box, IconButton, Paper, TextField } from '@mui/material';
+import { Autocomplete, Box, Paper, TextField } from '@mui/material';
 import React from 'react';
 
 interface ExchangeOption {
@@ -14,28 +13,37 @@ interface PairOption {
 }
 
 interface TradingTopBarProps {
-  selectedExchange: ExchangeOption | null;
-  selectedPair: PairOption | null;
+  exchangeOptions: ExchangeOption[];
+  selectedExchange: ExchangeOption;
+  onExchangeChange: (_event: any, value: ExchangeOption) => void;
+  selectedPair: PairOption;
   pairsForExchange: PairOption[];
-  handleBack: () => void;
-  handlePairChange: (_event: any, value: PairOption | null) => void;
+  onPairChange: (_event: any, value: PairOption) => void;
 }
 
 const TradingTopBar: React.FC<TradingTopBarProps> = ({
+  exchangeOptions,
   selectedExchange,
+  onExchangeChange,
   selectedPair,
   pairsForExchange,
-  handleBack,
-  handlePairChange,
+  onPairChange,
 }) => (
   <Paper sx={{ mb: 1, p: 2, borderRadius: 2, minHeight: 56, display: 'flex', alignItems: 'center', gap: 2 }} elevation={1}>
-    <IconButton onClick={handleBack} size="small" color="primary">
-      <ArrowBackIcon />
-    </IconButton>
+    <Autocomplete
+      options={exchangeOptions}
+      value={selectedExchange}
+      onChange={onExchangeChange}
+      renderInput={(params) => <TextField {...params} label="Exchange" />}
+      fullWidth={false}
+      sx={{ minWidth: 180 }}
+      disableClearable
+      isOptionEqualToValue={(option, value) => option.value === value.value}
+    />
     <Autocomplete
       options={pairsForExchange}
-      value={selectedPair ?? undefined}
-      onChange={handlePairChange}
+      value={selectedPair}
+      onChange={onPairChange}
       renderInput={(params) => <TextField {...params} label="Pair" />}
       fullWidth={false}
       sx={{ minWidth: 240 }}
