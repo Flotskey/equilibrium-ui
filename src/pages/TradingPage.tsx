@@ -92,7 +92,7 @@ const TradingPage = () => {
                 <TradingChart />
               </Paper>
             </Box>
-            <Box sx={{ flex: 5, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ flex: 5, display: 'flex', flexDirection: 'column', rowGap: '16px', height: '100%' }}>
               <OrderManager tab={tab} setTab={setTab} />
             </Box>
           </Box>
