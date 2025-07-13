@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 
 export type DragType = null | "entry" | "sl" | "tp";
 
@@ -13,17 +14,22 @@ export interface TradingChartState {
   setDragging: (d: DragType) => void;
 }
 
-export const useTradingChartStore = create<TradingChartState>(
-  (
-    set: (fn: (state: TradingChartState) => Partial<TradingChartState>) => void
-  ) => ({
-    entryPrice: 67800,
-    slPrice: 67400,
-    tpPrice: 68400,
-    dragging: null,
-    setEntryPrice: (p: number) => set(() => ({ entryPrice: p })),
-    setSLPrice: (p: number) => set(() => ({ slPrice: p })),
-    setTPPrice: (p: number) => set(() => ({ tpPrice: p })),
-    setDragging: (d: DragType) => set(() => ({ dragging: d })),
-  })
+export const useTradingChartStore = create<TradingChartState>()(
+  devtools(
+    (set) => ({
+      entryPrice: 1000,
+      slPrice: 997,
+      tpPrice: 1021,
+      dragging: null,
+      setEntryPrice: (p: number) =>
+        set(() => ({ entryPrice: p }), false, "setEntryPrice"),
+      setSLPrice: (p: number) =>
+        set(() => ({ slPrice: p }), false, "setSLPrice"),
+      setTPPrice: (p: number) =>
+        set(() => ({ tpPrice: p }), false, "setTPPrice"),
+      setDragging: (d: DragType) =>
+        set(() => ({ dragging: d }), false, "setDragging"),
+    }),
+    { name: "TradingChartStore" }
+  )
 );

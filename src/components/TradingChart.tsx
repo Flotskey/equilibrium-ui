@@ -1,6 +1,7 @@
+import { fetchOhlcv, fetchTimeframes, getStreamingSocket } from '@/services/api';
 import type { TradingChartState } from '@/store/tradingChartStore';
 import { useTradingChartStore } from '@/store/tradingChartStore';
-import { Box, Button, ButtonGroup } from '@mui/material';
+import { Box } from '@mui/material';
 import {
   CandlestickData,
   CandlestickSeries,
@@ -9,39 +10,38 @@ import {
   IChartApi,
   IPriceLine,
   ISeriesApi,
-  LineStyle,
-  Time,
-  WhitespaceData,
+  Time
 } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
-import EntryHandle from './EntryHandle';
-import SLHandle from './SLHandle';
-import TPHandle from './TPHandle';
+import TimeframeSelect from './TimeframeSelect';
 
-const data = [
-  { time: '2024-06-01', open: 67000, high: 67500, low: 66500, close: 67200 },
-  { time: '2024-06-02', open: 67200, high: 67800, low: 67000, close: 67600 },
-  { time: '2024-06-03', open: 67600, high: 68000, low: 67400, close: 67800 },
-  { time: '2024-06-04', open: 67800, high: 68200, low: 67700, close: 68000 },
-  { time: '2024-06-05', open: 68000, high: 68500, low: 67900, close: 68400 },
-  { time: '2024-06-06', open: 68400, high: 68800, low: 68300, close: 68700 },
-  { time: '2024-06-07', open: 68700, high: 69000, low: 68600, close: 68900 },
-];
+interface TimeframeDef { label: string; seconds: number; }
 
-const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', 'D', 'W', 'M'];
+interface TradingChartProps {
+  exchangeId: string;
+  symbol: string;
+}
 
-const TradingChart = () => {
+// WebSocket OHLCV message type
+interface OhlcvWsMessage {
+  candle: [number, number, number, number, number, number];
+  closed: boolean;
+}
+
+const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<
-    ISeriesApi<'Candlestick', Time, CandlestickData<Time> | WhitespaceData<Time>, any, any> | null
-  >(null);
+  const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const entryLineRef = useRef<IPriceLine | null>(null);
   const slLineRef = useRef<IPriceLine | null>(null);
   const tpLineRef = useRef<IPriceLine | null>(null);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<string>('30m');
+  const [selectedTimeframeIdx, setSelectedTimeframeIdx] = useState(2); // default 15m
+  const [timeframes, setTimeframes] = useState<TimeframeDef[]>([]);
+  const [timeframesLoading, setTimeframesLoading] = useState(false);
   const [handlePositions, setHandlePositions] = useState<{ entry: number; sl: number; tp: number }>({ entry: 0, sl: 0, tp: 0 });
   const dragYRef = useRef<number | null>(null);
+  const candleDataRef = useRef<CandlestickData<Time>[]>([]); // holds the current candles
+  const [loading, setLoading] = useState(true);
 
   // Zustand state
   const entryPrice = useTradingChartStore((s: TradingChartState) => s.entryPrice);
@@ -52,6 +52,29 @@ const TradingChart = () => {
   const setSLPrice = useTradingChartStore((s: TradingChartState) => s.setSLPrice);
   const setTPPrice = useTradingChartStore((s: TradingChartState) => s.setTPPrice);
   const setDragging = useTradingChartStore((s: TradingChartState) => s.setDragging);
+
+  // Fetch available timeframes for the exchange
+  useEffect(() => {
+    if (!exchangeId) return;
+    setTimeframesLoading(true);
+    fetchTimeframes(exchangeId)
+      .then((tfObj) => {
+        // tfObj: { '1m': '1', ... }
+        // Map to array: label, seconds, backend
+        const labelToSeconds: Record<string, number> = {
+          '1m': 60, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '2h': 7200, '4h': 14400, '6h': 21600, '12h': 43200, '1d': 86400, '1w': 604800, '1M': 2592000, 'D': 86400, 'W': 604800, 'M': 2592000
+        };
+        const arr: TimeframeDef[] = Object.keys(tfObj).map(label => ({
+          label,
+          seconds: labelToSeconds[label] ?? 0,
+        })).filter(tf => tf.seconds > 0);
+        // Sort by seconds ascending
+        arr.sort((a, b) => a.seconds - b.seconds);
+        setTimeframes(arr);
+        setSelectedTimeframeIdx(arr.length > 0 ? 2 : -1); // default to third available or -1 if none
+      })
+      .finally(() => setTimeframesLoading(false));
+  }, [exchangeId]);
 
   // Chart initialization and price lines
   useEffect(() => {
@@ -76,33 +99,33 @@ const TradingChart = () => {
     chartRef.current = chart;
     const candleSeries = chart.addSeries(CandlestickSeries, {});
     candleSeriesRef.current = candleSeries;
-    candleSeries.setData(data);
 
-    // Initial price lines (Entry: gold, TP: green, SL: red)
-    entryLineRef.current = candleSeries.createPriceLine({
-      price: entryPrice,
-      color: 'gold',
-      lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: 'Entry',
-    });
-    slLineRef.current = candleSeries.createPriceLine({
-      price: slPrice,
-      color: 'red',
-      lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: 'SL',
-    });
-    tpLineRef.current = candleSeries.createPriceLine({
-      price: tpPrice,
-      color: 'green',
-      lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: 'TP',
-    });
+    // Create price lines (Entry: gold, TP: green, SL: red)
+    // TODO: add price lines logic later
+    // entryLineRef.current = candleSeries.createPriceLine({
+    //   price: entryPrice,
+    //   color: 'gold',
+    //   lineWidth: 1,
+    //   lineStyle: LineStyle.Dashed,
+    //   axisLabelVisible: true,
+    //   title: 'Entry',
+    // });
+    // slLineRef.current = candleSeries.createPriceLine({
+    //   price: slPrice,
+    //   color: 'red',
+    //   lineWidth: 1,
+    //   lineStyle: LineStyle.Dashed,
+    //   axisLabelVisible: true,
+    //   title: 'SL',
+    // });
+    // tpLineRef.current = candleSeries.createPriceLine({
+    //   price: tpPrice,
+    //   color: 'green',
+    //   lineWidth: 1,
+    //   lineStyle: LineStyle.Dashed,
+    //   axisLabelVisible: true,
+    //   title: 'TP',
+    // });
 
     // Responsive resize
     const handleResize = () => {
@@ -114,53 +137,110 @@ const TradingChart = () => {
       updateHandlePositions();
     };
     window.addEventListener('resize', handleResize);
-
-    // Initial handle positions
     setTimeout(updateHandlePositions, 100);
-
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
       chartRef.current = null;
     };
-    // eslint-disable-next-line
+  }, [selectedTimeframeIdx, timeframes]);
+
+  useEffect(() => {
+    if (!timeframes.length) return;
+    let unsub: (() => void) | undefined;
+    let isMounted = true;
+    setLoading(true);
+    const tf = timeframes[selectedTimeframeIdx]?.label || timeframes[0]?.label;
+    if (!tf) return;
+    fetchOhlcv({ exchangeId, symbol, timeframe: tf, limit: 100 })
+      .then((data) => {
+        if (!isMounted) return;
+        const candles = data.map(([time, open, high, low, close, volume]) => ({
+          time: Math.floor(time / 1000) as Time,
+          open, high, low, close,
+        }));
+        // Deduplicate by time, keep last
+        const deduped = Array.from(new Map(candles.map(c => [c.time, c])).values());
+        deduped.sort((a, b) => Number(a.time) - Number(b.time));
+        candleDataRef.current = deduped;
+        candleSeriesRef.current?.setData(deduped);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+    return () => {
+      isMounted = false;
+    };
+  }, [exchangeId, symbol, selectedTimeframeIdx, timeframes]);
+
+  // WebSocket subscription (setup once, update params on change)
+  useEffect(() => {
+    const socket = getStreamingSocket();
+    const handleCandle = (msg: OhlcvWsMessage) => {
+      const [time, open, high, low, close, volume] = msg.candle;
+      const c = { time: Math.floor(Number(time) / 1000) as Time, open, high, low, close };
+      // Update last or push new
+      const arr = candleDataRef.current;
+      if (arr.length && arr[arr.length - 1].time === c.time) {
+        arr[arr.length - 1] = c;
+      } else {
+        arr.push(c);
+      }
+      // Deduplicate by time, keep last
+      const deduped = Array.from(new Map(arr.map(c => [c.time, c])).values());
+      deduped.sort((a, b) => Number(a.time) - Number(b.time));
+      candleDataRef.current = deduped;
+      candleSeriesRef.current?.setData([...deduped]);
+    };
+    socket.on('ohlcv', handleCandle);
+    return () => {
+      socket.off('ohlcv', handleCandle);
+    };
   }, []);
 
-  // Update price lines and handle positions when prices change
+  // Update WebSocket subscription when params change (call watch again with new timeframe)
+  useEffect(() => {
+    if (!exchangeId || !symbol || !timeframes.length) return;
+    const tf = timeframes[selectedTimeframeIdx]?.label || timeframes[0]?.label;
+    if (!tf) return;
+    const socket = getStreamingSocket();
+    socket.emit('watchOhlcv', { exchangeId, symbol, timeframe: tf });
+  }, [exchangeId, symbol, selectedTimeframeIdx, timeframes]);
+
+  // Update price lines and handle positions when prices or timeframe change
   useEffect(() => {
     if (!candleSeriesRef.current) return;
-    // Remove old lines
+    // Remove old lines if they exist
     if (entryLineRef.current) candleSeriesRef.current.removePriceLine(entryLineRef.current);
     if (slLineRef.current) candleSeriesRef.current.removePriceLine(slLineRef.current);
     if (tpLineRef.current) candleSeriesRef.current.removePriceLine(tpLineRef.current);
     // Add new lines (Entry: gold, TP: green, SL: red)
-    entryLineRef.current = candleSeriesRef.current.createPriceLine({
-      price: entryPrice,
-      color: 'gold',
-      lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: 'Entry',
-    });
-    slLineRef.current = candleSeriesRef.current.createPriceLine({
-      price: slPrice,
-      color: 'red',
-      lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: 'SL',
-    });
-    tpLineRef.current = candleSeriesRef.current.createPriceLine({
-      price: tpPrice,
-      color: 'green',
-      lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: 'TP',
-    });
+    // entryLineRef.current = candleSeriesRef.current.createPriceLine({
+    //   price: entryPrice,
+    //   color: 'gold',
+    //   lineWidth: 1,
+    //   lineStyle: LineStyle.Dashed,
+    //   axisLabelVisible: true,
+    //   title: 'Entry',
+    // });
+    // slLineRef.current = candleSeriesRef.current.createPriceLine({
+    //   price: slPrice,
+    //   color: 'red',
+    //   lineWidth: 1,
+    //   lineStyle: LineStyle.Dashed,
+    //   axisLabelVisible: true,
+    //   title: 'SL',
+    // });
+    // tpLineRef.current = candleSeriesRef.current.createPriceLine({
+    //   price: tpPrice,
+    //   color: 'green',
+    //   lineWidth: 1,
+    //   lineStyle: LineStyle.Dashed,
+    //   axisLabelVisible: true,
+    //   title: 'TP',
+    // });
     updateHandlePositions();
-    // eslint-disable-next-line
-  }, [entryPrice, slPrice, tpPrice]);
+    // Including selectedTimeframeIdx ensures price lines are recreated after timeframe change/chart re-init
+  }, [entryPrice, slPrice, tpPrice, selectedTimeframeIdx]);
 
   // Update handle positions (Y in px) for overlays
   function updateHandlePositions(): void {
@@ -209,52 +289,28 @@ const TradingChart = () => {
   // Sync handle positions on price/resize
   useEffect(() => {
     updateHandlePositions();
-    // eslint-disable-next-line
   }, [entryPrice, slPrice, tpPrice]);
 
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pl: 1 }}>
-        <ButtonGroup variant="text" size="small">
-          {timeframes.map(tf => (
-            <Button
-              key={tf}
-              sx={{ color: selectedTimeframe === tf ? '#ffb300' : '#aaa', fontWeight: selectedTimeframe === tf ? 700 : 400 }}
-              onClick={() => setSelectedTimeframe(tf)}
-            >
-              {tf}
-            </Button>
-          ))}
-        </ButtonGroup>
-      </Box>
+      {timeframesLoading ? (
+        <Box sx={{ p: 2, textAlign: 'center', color: '#888' }}>Loading timeframes...</Box>
+      ) : (
+        <TimeframeSelect
+          timeframes={timeframes.map(({ label, seconds }) => ({ label, seconds }))}
+          selectedIdx={selectedTimeframeIdx}
+          onSelect={setSelectedTimeframeIdx}
+          sx={{ mb: 1, pl: 1 }}
+        />
+      )}
       <Box sx={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}>
+        {loading && <div style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 100, background: 'rgba(0,0,0,0.3)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>}
         <div
           ref={chartContainerRef}
           style={{ width: '100%', height: '100%', position: 'relative', zIndex: 1, flex: 1 }}
           onMouseMove={dragging ? onDrag : undefined}
           onMouseUp={dragging ? onDragEnd : undefined}
           onMouseLeave={dragging ? onDragEnd : undefined}
-        />
-        <EntryHandle
-          top={dragging === 'entry' && dragYRef.current !== null ? dragYRef.current : handlePositions.entry}
-          dragging={dragging === 'entry'}
-          onMouseDown={e => onDragStart('entry', e)}
-          price={entryPrice}
-          color="gold"
-        />
-        <SLHandle
-          top={dragging === 'sl' && dragYRef.current !== null ? dragYRef.current : handlePositions.sl}
-          dragging={dragging === 'sl'}
-          onMouseDown={e => onDragStart('sl', e)}
-          price={slPrice}
-          color="red"
-        />
-        <TPHandle
-          top={dragging === 'tp' && dragYRef.current !== null ? dragYRef.current : handlePositions.tp}
-          dragging={dragging === 'tp'}
-          onMouseDown={e => onDragStart('tp', e)}
-          price={tpPrice}
-          color="green"
         />
       </Box>
     </Box>

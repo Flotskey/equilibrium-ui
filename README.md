@@ -18,11 +18,11 @@ export default tseslint.config({
   languageOptions: {
     // other options...
     parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      project: ["./tsconfig.node.json", "./tsconfig.app.json"],
       tsconfigRootDir: import.meta.dirname,
     },
   },
-})
+});
 ```
 
 - Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
@@ -31,11 +31,11 @@ export default tseslint.config({
 
 ```js
 // eslint.config.js
-import react from 'eslint-plugin-react'
+import react from "eslint-plugin-react";
 
 export default tseslint.config({
   // Set the react version
-  settings: { react: { version: '18.3' } },
+  settings: { react: { version: "18.3" } },
   plugins: {
     // Add the react plugin
     react,
@@ -44,7 +44,24 @@ export default tseslint.config({
     // other rules...
     // Enable its recommended rules
     ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
+    ...react.configs["jsx-runtime"].rules,
   },
-})
+});
 ```
+
+# Backend API Configuration
+
+This project uses a backend API for real-time and historical trading data. The backend URL is configured via an environment variable for flexibility between development and production.
+
+## Setting the Backend URL
+
+Create a `.env` file in the project root (same directory as `package.json`) with the following content:
+
+```
+VITE_BACKEND_URL=http://localhost:3000
+```
+
+- Change the value to your backend's address as needed (e.g., for production).
+- After editing `.env`, **restart the dev server** (`npm run dev`) for changes to take effect.
+
+The app will use this URL for both REST and WebSocket connections to the backend.
