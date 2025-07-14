@@ -1,6 +1,10 @@
-import { fetchOhlcv, fetchTimeframes, getStreamingSocket } from '@/services/api';
+import { fetchMarket, fetchOhlcv, fetchTimeframes } from '@/services/api';
+import type { CcxtMarket } from '@/services/types';
+import { OhlcvWsMessage } from '@/services/types';
+import { getStreamingSocket, watchOhlcv } from '@/services/ws-api';
 import type { TradingChartState } from '@/store/tradingChartStore';
 import { useTradingChartStore } from '@/store/tradingChartStore';
+import { stepToPrecision } from '@/utils/format';
 import { Box } from '@mui/material';
 import {
   CandlestickData,
@@ -22,13 +26,7 @@ interface TradingChartProps {
   symbol: string;
 }
 
-// WebSocket OHLCV message type
-interface OhlcvWsMessage {
-  candle: [number, number, number, number, number, number];
-  closed: boolean;
-}
-
-const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
+const PriceChart = ({ exchangeId, symbol }: TradingChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -42,6 +40,8 @@ const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
   const dragYRef = useRef<number | null>(null);
   const candleDataRef = useRef<CandlestickData<Time>[]>([]); // holds the current candles
   const [loading, setLoading] = useState(true);
+  const [market, setMarket] = useState<CcxtMarket | null>(null);
+  const [pricePrecision, setPricePrecision] = useState(6); // default to 6
 
   // Zustand state
   const entryPrice = useTradingChartStore((s: TradingChartState) => s.entryPrice);
@@ -76,6 +76,17 @@ const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
       .finally(() => setTimeframesLoading(false));
   }, [exchangeId]);
 
+  // Fetch market info and set price precision
+  useEffect(() => {
+    if (!exchangeId || !symbol) return;
+    fetchMarket(exchangeId, symbol)
+      .then(mkt => {
+        setMarket(mkt);
+        setPricePrecision(stepToPrecision(mkt.precision?.price ?? 1e-6));
+      })
+      .catch(() => setMarket(null));
+  }, [exchangeId, symbol]);
+
   // Chart initialization and price lines
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -97,7 +108,13 @@ const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
       timeScale: { borderColor: '#444' },
     });
     chartRef.current = chart;
-    const candleSeries = chart.addSeries(CandlestickSeries, {});
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      priceFormat: {
+        type: 'price',
+        precision: pricePrecision,
+        minMove: Math.pow(10, -pricePrecision),
+      }
+    });
     candleSeriesRef.current = candleSeries;
 
     // Create price lines (Entry: gold, TP: green, SL: red)
@@ -137,17 +154,29 @@ const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
       updateHandlePositions();
     };
     window.addEventListener('resize', handleResize);
-    setTimeout(updateHandlePositions, 100);
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
       chartRef.current = null;
     };
-  }, [selectedTimeframeIdx, timeframes]);
+  }, [selectedTimeframeIdx, timeframes, pricePrecision]);
+
+  // Unified candle mapping and deduplication
+  function mapCandle(candle: [number, number, number, number, number, number]) {
+    const [time, open, high, low, close, volume] = candle;
+    return {
+      time: Math.floor(time / 1000) as Time, // always seconds
+      open, high, low, close,
+    };
+  }
+  function dedupeAndSort(candles: { time: Time, open: number, high: number, low: number, close: number }[]) {
+    const deduped = Array.from(new Map(candles.map(c => [c.time, c])).values());
+    deduped.sort((a, b) => Number(a.time) - Number(b.time));
+    return deduped;
+  }
 
   useEffect(() => {
     if (!timeframes.length) return;
-    let unsub: (() => void) | undefined;
     let isMounted = true;
     setLoading(true);
     const tf = timeframes[selectedTimeframeIdx]?.label || timeframes[0]?.label;
@@ -155,15 +184,9 @@ const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
     fetchOhlcv({ exchangeId, symbol, timeframe: tf, limit: 100 })
       .then((data) => {
         if (!isMounted) return;
-        const candles = data.map(([time, open, high, low, close, volume]) => ({
-          time: Math.floor(time / 1000) as Time,
-          open, high, low, close,
-        }));
-        // Deduplicate by time, keep last
-        const deduped = Array.from(new Map(candles.map(c => [c.time, c])).values());
-        deduped.sort((a, b) => Number(a.time) - Number(b.time));
-        candleDataRef.current = deduped;
-        candleSeriesRef.current?.setData(deduped);
+        const candles = data.map(mapCandle);
+        candleDataRef.current = dedupeAndSort(candles);
+        candleSeriesRef.current?.setData(candleDataRef.current);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -172,38 +195,35 @@ const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
     };
   }, [exchangeId, symbol, selectedTimeframeIdx, timeframes]);
 
-  // WebSocket subscription (setup once, update params on change)
-  useEffect(() => {
-    const socket = getStreamingSocket();
-    const handleCandle = (msg: OhlcvWsMessage) => {
-      const [time, open, high, low, close, volume] = msg.candle;
-      const c = { time: Math.floor(Number(time) / 1000) as Time, open, high, low, close };
-      // Update last or push new
-      const arr = candleDataRef.current;
-      if (arr.length && arr[arr.length - 1].time === c.time) {
-        arr[arr.length - 1] = c;
-      } else {
-        arr.push(c);
-      }
-      // Deduplicate by time, keep last
-      const deduped = Array.from(new Map(arr.map(c => [c.time, c])).values());
-      deduped.sort((a, b) => Number(a.time) - Number(b.time));
-      candleDataRef.current = deduped;
-      candleSeriesRef.current?.setData([...deduped]);
-    };
-    socket.on('ohlcv', handleCandle);
-    return () => {
-      socket.off('ohlcv', handleCandle);
-    };
-  }, []);
-
-  // Update WebSocket subscription when params change (call watch again with new timeframe)
+  // WebSocket subscription
   useEffect(() => {
     if (!exchangeId || !symbol || !timeframes.length) return;
     const tf = timeframes[selectedTimeframeIdx]?.label || timeframes[0]?.label;
     if (!tf) return;
     const socket = getStreamingSocket();
-    socket.emit('watchOhlcv', { exchangeId, symbol, timeframe: tf });
+    const handleCandle = (msg: OhlcvWsMessage) => {
+      const c = mapCandle(msg.candle);
+      // Update last or push new, merging high/low for same time
+      const arr = candleDataRef.current;
+      const idx = arr.findIndex(x => x.time === c.time);
+      if (idx !== -1) {
+        arr[idx] = {
+          ...arr[idx],
+          open: arr[idx].open,
+          close: c.close,
+          high: Math.max(arr[idx].high, c.high),
+          low: Math.min(arr[idx].low, c.low),
+        };
+      } else {
+        arr.push(c); // append new candle
+      }
+      candleDataRef.current = dedupeAndSort(arr);
+      candleSeriesRef.current?.setData([...candleDataRef.current]);
+    };
+    const unsub = watchOhlcv(socket, { exchangeId, symbol, timeframe: tf }, handleCandle);
+    return () => {
+      unsub();
+    };
   }, [exchangeId, symbol, selectedTimeframeIdx, timeframes]);
 
   // Update price lines and handle positions when prices or timeframe change
@@ -214,6 +234,7 @@ const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
     if (slLineRef.current) candleSeriesRef.current.removePriceLine(slLineRef.current);
     if (tpLineRef.current) candleSeriesRef.current.removePriceLine(tpLineRef.current);
     // Add new lines (Entry: gold, TP: green, SL: red)
+    // TODO: add price lines logic later
     // entryLineRef.current = candleSeriesRef.current.createPriceLine({
     //   price: entryPrice,
     //   color: 'gold',
@@ -317,4 +338,4 @@ const TradingChart = ({ exchangeId, symbol }: TradingChartProps) => {
   );
 };
 
-export default TradingChart; 
+export default PriceChart; 

@@ -5,7 +5,7 @@ import { Box, Paper } from '@mui/material';
 import Grid2 from '@mui/material/Grid2';
 import { useEffect, useRef, useState } from 'react';
 import OrderBook from '../components/OrderBook';
-import TradingChart from '../components/TradingChart';
+import PriceChart from '../components/PriceChart';
 import TradingForm from '../components/TradingForm';
 
 interface ExchangeOption {
@@ -17,6 +17,8 @@ interface PairOption {
   value: string;
   lastPrice: string;
   priceChange24h: string;
+  high24h: string;
+  low24h: string;
 }
 
 const LOCAL_STORAGE_KEY_EXCHANGE = 'selectedExchange';
@@ -83,6 +85,8 @@ const TradingPage = () => {
           value: t.symbol,
           lastPrice: formatSmallNumber(t.last),
           priceChange24h: percentStr,
+          high24h: formatSmallNumber(t.high),
+          low24h: formatSmallNumber(t.low),
         };
       });
       setPairsForExchange(pairs);
@@ -151,7 +155,7 @@ const TradingPage = () => {
             <Box sx={{ flex: 6, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <Paper sx={{ p: 2, height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} elevation={2}>
                 {selectedExchange && selectedPair && (
-                  <TradingChart exchangeId={selectedExchange.value} symbol={selectedPair.value} />
+                  <PriceChart exchangeId={selectedExchange.value} symbol={selectedPair.value} />
                 )}
               </Paper>
             </Box>
@@ -161,7 +165,13 @@ const TradingPage = () => {
           </Box>
         </Grid2>
         <Grid2 size={2.5} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <OrderBook />
+          {selectedExchange && selectedPair ? (
+            <OrderBook exchangeId={selectedExchange.value} symbol={selectedPair.value} />
+          ) : (
+            <Paper sx={{ flex: 2, p: 2, minHeight: 360, display: 'flex', flexDirection: 'column', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', color: '#888' }}>
+              Select exchange and pair to view order book
+            </Paper>
+          )}
         </Grid2>
         <Grid2 size={2.5} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
           <TradingForm />

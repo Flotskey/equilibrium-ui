@@ -1,6 +1,8 @@
 import { MainLayout } from "@/app/layouts";
+import { NotificationProvider, useNotify } from "@/components/NotificationProvider";
 import TradingPage from "@/pages/TradingPage";
 import { createTheme, CssBaseline, ThemeProvider } from "@mui/material";
+import { useEffect } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 const router = createBrowserRouter([
@@ -17,13 +19,25 @@ const theme = createTheme({
   },
 });
 
+// This component must be rendered inside NotificationProvider
+function NotifyBridge() {
+  const notify = useNotify();
+  useEffect(() => {
+    (window as any).notify = notify;
+  }, [notify]);
+  return null;
+}
+
 const App = () => {
   return (
     <ThemeProvider theme={theme} defaultMode={"dark"}>
       <CssBaseline />
-      <MainLayout>
-        <RouterProvider router={router} />
-      </MainLayout>
+      <NotificationProvider>
+        <NotifyBridge />
+        <MainLayout>
+          <RouterProvider router={router} />
+        </MainLayout>
+      </NotificationProvider>
     </ThemeProvider>
   );
 };
