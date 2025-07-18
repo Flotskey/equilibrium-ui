@@ -25,7 +25,8 @@ const LOCAL_STORAGE_KEY_EXCHANGE = 'selectedExchange';
 const LOCAL_STORAGE_KEY_PAIR = 'selectedPair';
 
 // Format small numbers like CoinMarketCap
-function formatSmallNumber(num: number): string {
+function formatSmallNumber(num: number | undefined | null): string {
+  if (num === undefined || num === null || isNaN(num)) return '0';
   if (num === 0) return '0';
   const abs = Math.abs(num);
   if (abs >= 0.01) {
@@ -73,7 +74,13 @@ const TradingPage = () => {
   const fetchPairsForExchange = async (exchangeId: string) => {
     try {
       const tickers = await fetchShortTickers(exchangeId);
-      const pairs = tickers.map((t: any) => {
+      
+      if (!tickers || tickers.length === 0) {
+        setPairsForExchange([]);
+        return;
+      }
+
+      const pairs = tickers.map((t: any) => {    
         // Convert change to human-readable percent
         let percent = 0;
         if (t.last !== 0) {
@@ -89,15 +96,23 @@ const TradingPage = () => {
           low24h: formatSmallNumber(t.low),
         };
       });
+      
       setPairsForExchange(pairs);
+      
       // Restore selectedPair from localStorage or default to BTC/USDT/first
       const savedPair = localStorage.getItem(LOCAL_STORAGE_KEY_PAIR);
+      
       setSelectedPair(prev => {
-        if (prev && pairs.some(p => p.value === prev.value)) return prev;
+        if (prev && pairs.some(p => p.value === prev.value)) {
+          return prev;
+        }
         const foundPair = pairs.find(p => p.value === savedPair) || pairs.find(p => p.value.toUpperCase() === 'BTC/USDT') || pairs[0] || null;
         return foundPair;
       });
-    } catch {}
+    } catch (error) {
+      console.error(`❌ Error fetching pairs for ${exchangeId}:`, error);
+      setPairsForExchange([]);
+    }
   };
 
   // When exchange changes, clear pairs and selectedPair, and fetch pairs immediately
@@ -164,7 +179,7 @@ const TradingPage = () => {
             </Box>
           </Box>
         </Grid2>
-        <Grid2 size={2.5} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+        <Grid2 size={2.5} sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '100%' }}>
           {selectedExchange && selectedPair ? (
             <OrderBook exchangeId={selectedExchange.value} symbol={selectedPair.value} />
           ) : (

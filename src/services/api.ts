@@ -8,11 +8,13 @@ async function fetchWithNotify(
 ) {
   try {
     const res = await fetch(url);
+
     if (!res.ok) {
       let errMsg = res.statusText;
       try {
         // Try to parse error body as JSON, but handle empty/invalid JSON
         const text = await res.text();
+
         let err: any = {};
         try {
           err = JSON.parse(text);
@@ -31,18 +33,27 @@ async function fetchWithNotify(
           errMsg = err.error;
         }
       } catch {}
+      console.error(`❌ fetchWithNotify error:`, errMsg);
       notify({ message: errMsg, severity: "error" });
       throw new Error(errMsg);
     }
     // Try to parse success body as JSON, but handle empty/invalid JSON
     const text = await res.text();
-    if (!text) return null;
+
+    if (!text) {
+      console.warn(`⚠️ Empty response text`);
+      return null;
+    }
+
     try {
-      return JSON.parse(text);
-    } catch {
+      const parsed = JSON.parse(text);
+      return parsed;
+    } catch (parseError) {
+      console.warn(`⚠️ Failed to parse JSON, returning text:`, parseError);
       return text;
     }
   } catch (err: any) {
+    console.error(`❌ fetchWithNotify caught error:`, err);
     notify({ message: err?.message || "Unknown error", severity: "error" });
     throw err;
   }
@@ -85,13 +96,23 @@ export async function fetchExchangesList(): Promise<string[]> {
 
 export async function fetchShortTickers(exchangeId: string): Promise<Ticker[]> {
   const url = `${BACKEND_URL}/exchanges/public/${exchangeId}/short-tickers`;
+
   const notify = (window as any).notify;
   if (notify) {
     return fetchWithNotify(url, notify);
   } else {
     const res = await fetch(url);
-    if (!res.ok) throw new Error("Failed to fetch short-tickers");
-    return await res.json();
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`❌ Error response for ${exchangeId}:`, errorText);
+      throw new Error(
+        `Failed to fetch short-tickers: ${res.status} ${res.statusText}`
+      );
+    }
+
+    const data = await res.json();
+    return data;
   }
 }
 
