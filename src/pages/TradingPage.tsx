@@ -4,6 +4,7 @@ import { fetchExchangesList, fetchShortTickers } from '@/services/api';
 import { Box, Paper } from '@mui/material';
 import Grid2 from '@mui/material/Grid2';
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import OrderBook from '../components/OrderBook';
 import PriceChart from '../components/PriceChart';
 import TradingForm from '../components/TradingForm';
@@ -49,6 +50,7 @@ function formatSmallNumber(num: number | undefined | null): string {
 }
 
 const TradingPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState(0);
   const [exchangeOptions, setExchangeOptions] = useState<ExchangeOption[]>([]);
   const [selectedExchange, setSelectedExchange] = useState<ExchangeOption | null>(null);
@@ -57,18 +59,40 @@ const TradingPage = () => {
   const requestedRef = useRef(false);
   const [pairDropdownOpen, setPairDropdownOpen] = useState(false);
 
+  // Get exchange and symbol from URL query params
+  const urlExchangeId = searchParams.get('exchangeId');
+  const urlSymbol = searchParams.get('symbol');
+
   useEffect(() => {
     if (requestedRef.current) return;
     requestedRef.current = true;
     fetchExchangesList().then(list => {
       const options = list.map(e => ({ label: e.charAt(0).toUpperCase() + e.slice(1), value: e }));
       setExchangeOptions(options);
-      // Restore from localStorage or default to Binance/first
-      const savedExchange = localStorage.getItem(LOCAL_STORAGE_KEY_EXCHANGE);
-      const foundExchange = options.find(e => e.value === savedExchange) || options.find(e => e.value.toLowerCase() === 'binance') || options[0] || null;
+      
+      // Priority: URL params > localStorage > defaults
+      let foundExchange: ExchangeOption | null = null;
+      
+      if (urlExchangeId) {
+        // Use exchange from URL params
+        foundExchange = options.find(e => e.value.toLowerCase() === urlExchangeId.toLowerCase()) || null;
+        if (foundExchange) {
+          // Update localStorage with URL param value
+          localStorage.setItem(LOCAL_STORAGE_KEY_EXCHANGE, foundExchange.value);
+        }
+      }
+      
+      if (!foundExchange) {
+        // Fallback to localStorage or default
+        const savedExchange = localStorage.getItem(LOCAL_STORAGE_KEY_EXCHANGE);
+        foundExchange = options.find(e => e.value === savedExchange) || 
+                       options.find(e => e.value.toLowerCase() === 'binance') || 
+                       options[0] || null;
+      }
+      
       setSelectedExchange(foundExchange);
     });
-  }, []);
+  }, [urlExchangeId]);
 
   // Fetch pairs (short-tickers) only when dropdown is opened or on mount/exchange change
   const fetchPairsForExchange = async (exchangeId: string) => {
@@ -99,16 +123,27 @@ const TradingPage = () => {
       
       setPairsForExchange(pairs);
       
-      // Restore selectedPair from localStorage or default to BTC/USDT/first
-      const savedPair = localStorage.getItem(LOCAL_STORAGE_KEY_PAIR);
+      // Priority: URL params > localStorage > defaults
+      let foundPair: PairOption | null = null;
       
-      setSelectedPair(prev => {
-        if (prev && pairs.some(p => p.value === prev.value)) {
-          return prev;
+      if (urlSymbol) {
+        // Use symbol from URL params
+        foundPair = pairs.find(p => p.value.toUpperCase() === urlSymbol.toUpperCase()) || null;
+        if (foundPair) {
+          // Update localStorage with URL param value
+          localStorage.setItem(LOCAL_STORAGE_KEY_PAIR, foundPair.value);
         }
-        const foundPair = pairs.find(p => p.value === savedPair) || pairs.find(p => p.value.toUpperCase() === 'BTC/USDT') || pairs[0] || null;
-        return foundPair;
-      });
+      }
+      
+      if (!foundPair) {
+        // Fallback to localStorage or default
+        const savedPair = localStorage.getItem(LOCAL_STORAGE_KEY_PAIR);
+        foundPair = pairs.find(p => p.value === savedPair) || 
+                   pairs.find(p => p.value.toUpperCase() === 'BTC/USDT') || 
+                   pairs[0] || null;
+      }
+      
+      setSelectedPair(foundPair);
     } catch (error) {
       console.error(`❌ Error fetching pairs for ${exchangeId}:`, error);
       setPairsForExchange([]);
@@ -121,16 +156,27 @@ const TradingPage = () => {
       setPairsForExchange([]);
       setSelectedPair(null);
       localStorage.setItem(LOCAL_STORAGE_KEY_EXCHANGE, selectedExchange.value);
+      
+      // Update URL params when exchange changes
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.set('exchangeId', selectedExchange.value);
+      setSearchParams(newSearchParams, { replace: true });
+      
       fetchPairsForExchange(selectedExchange.value);
     }
-  }, [selectedExchange]);
+  }, [selectedExchange, searchParams, setSearchParams]);
 
-  // Save selectedPair to localStorage
+  // Save selectedPair to localStorage and update URL
   useEffect(() => {
     if (selectedPair) {
       localStorage.setItem(LOCAL_STORAGE_KEY_PAIR, selectedPair.value);
+      
+      // Update URL params when pair changes
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.set('symbol', selectedPair.value);
+      setSearchParams(newSearchParams, { replace: true });
     }
-  }, [selectedPair]);
+  }, [selectedPair, searchParams, setSearchParams]);
 
   // Handler for PairSelect dropdown open
   const handlePairDropdownOpen = () => {
