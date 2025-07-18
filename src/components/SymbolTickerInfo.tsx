@@ -1,4 +1,4 @@
-import { Ticker } from "@/services/types";
+import { CcxtTicker } from "@/services/types";
 import { getStreamingSocket, watchTicker } from "@/services/ws-api";
 import { formatWithSubscriptZeros } from "@/utils/format";
 import { Box } from "@mui/material";
@@ -10,7 +10,7 @@ interface SymbolTickerInfoProps {
   }
   
  export const SymbolTickerInfo: React.FC<SymbolTickerInfoProps> = ({ exchangeId, symbol }) => {
-    const [ticker, setTicker] = useState<Ticker | null>(null);
+    const [ticker, setTicker] = useState<CcxtTicker | null>(null);
     useEffect(() => {
       setTicker(null); // Clear ticker on symbol/exchange change
       if (!exchangeId || !symbol) return;

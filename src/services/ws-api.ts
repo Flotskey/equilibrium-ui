@@ -1,6 +1,6 @@
 import { BACKEND_URL } from "@/config";
 import { io, Socket } from "socket.io-client";
-import { OhlcvWsMessage, OrderBook, Ticker } from "./types";
+import { CcxtTicker, OhlcvWsMessage, OrderBook } from "./types";
 
 let socket: Socket | null = null;
 
@@ -51,7 +51,7 @@ export function watchOrderBook(
 export function watchTicker(
   socket: Socket,
   params: { exchangeId: string; symbol: string },
-  onTicker: (ticker: Ticker) => void
+  onTicker: (ticker: CcxtTicker) => void
 ) {
   const watchTimeout = setTimeout(() => {
     socket.emit("watchTicker", params);

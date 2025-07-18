@@ -1,6 +1,7 @@
 import OrderManager from '@/components/OrderManager';
 import TradingTopBar from '@/components/TradingTopBar';
-import { fetchExchangesList, fetchShortTickers } from '@/services/api';
+import { fetchExchangesList, fetchShortMarkets } from '@/services/api';
+import { ShortMarketDto } from '@/services/types';
 import { Box, Paper } from '@mui/material';
 import Grid2 from '@mui/material/Grid2';
 import { useEffect, useRef, useState } from 'react';
@@ -16,10 +17,6 @@ interface ExchangeOption {
 interface PairOption {
   label: string;
   value: string;
-  lastPrice: string;
-  priceChange24h: string;
-  high24h: string;
-  low24h: string;
 }
 
 const LOCAL_STORAGE_KEY_EXCHANGE = 'selectedExchange';
@@ -94,30 +91,20 @@ const TradingPage = () => {
     });
   }, [urlExchangeId]);
 
-  // Fetch pairs (short-tickers) only when dropdown is opened or on mount/exchange change
+  // Fetch pairs (short-markets) only when dropdown is opened or on mount/exchange change
   const fetchPairsForExchange = async (exchangeId: string) => {
     try {
-      const tickers = await fetchShortTickers(exchangeId);
+      const markets = await fetchShortMarkets(exchangeId);
       
-      if (!tickers || tickers.length === 0) {
+      if (!markets || markets.length === 0) {
         setPairsForExchange([]);
         return;
       }
 
-      const pairs = tickers.map((t: any) => {    
-        // Convert change to human-readable percent
-        let percent = 0;
-        if (t.last !== 0) {
-          percent = (t.change / (t.last - t.change)) * 100;
-        }
-        const percentStr = `${percent > 0 ? '+' : ''}${percent.toFixed(1)}%`;
+      const pairs = markets.map((m: ShortMarketDto) => {    
         return {
-          label: t.symbol,
-          value: t.symbol,
-          lastPrice: formatSmallNumber(t.last),
-          priceChange24h: percentStr,
-          high24h: formatSmallNumber(t.high),
-          low24h: formatSmallNumber(t.low),
+          label: m.symbol,
+          value: m.symbol,
         };
       });
       

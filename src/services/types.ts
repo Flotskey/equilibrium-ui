@@ -65,7 +65,7 @@ export interface CcxtMarket {
   info: Record<string, any>;
 }
 
-export interface Ticker {
+export interface CcxtTicker {
   symbol: string;
   info: any;
   timestamp: number;
@@ -88,4 +88,8 @@ export interface Ticker {
   baseVolume: number;
   indexPrice: number;
   markPrice: number;
+}
+
+export interface ShortMarketDto {
+  symbol: string;
 }

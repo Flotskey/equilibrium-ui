@@ -1,5 +1,11 @@
 import { BACKEND_URL } from "@/config";
-import { CcxtMarket, OhlcvCandle, OhlcvParams, Ticker } from "./types";
+import {
+  CcxtMarket,
+  CcxtTicker,
+  OhlcvCandle,
+  OhlcvParams,
+  ShortMarketDto,
+} from "./types";
 
 // Helper to wrap fetch and show notification on error
 async function fetchWithNotify(
@@ -98,18 +104,8 @@ export async function fetchExchangesList(): Promise<string[]> {
 export async function fetchShortTickers(
   exchangeId: string,
   body?: Record<string, any>
-): Promise<Ticker[]> {
+): Promise<CcxtTicker[]> {
   const url = `${BACKEND_URL}/exchanges/public/${exchangeId}/short-tickers`;
-
-  // Prepare request body
-  let requestBody: Record<string, any> | undefined;
-
-  // костыль для bybit
-  if (exchangeId === "bybit") {
-    requestBody = { category: "spot" };
-  } else if (body) {
-    requestBody = body;
-  }
 
   const notify = (window as any).notify;
   if (notify) {
@@ -118,7 +114,7 @@ export async function fetchShortTickers(
       headers: {
         "Content-Type": "application/json",
       },
-      body: requestBody ? JSON.stringify(requestBody) : undefined,
+      body: body ? JSON.stringify(body) : undefined,
     });
   } else {
     const res = await fetch(url, {
@@ -126,7 +122,7 @@ export async function fetchShortTickers(
       headers: {
         "Content-Type": "application/json",
       },
-      body: requestBody ? JSON.stringify(requestBody) : undefined,
+      body: body ? JSON.stringify(body) : undefined,
     });
 
     if (!res.ok) {
@@ -139,6 +135,30 @@ export async function fetchShortTickers(
 
     const data = await res.json();
     return data;
+  }
+}
+
+export async function fetchShortMarkets(
+  exchangeId: string
+): Promise<ShortMarketDto[]> {
+  const url = `${BACKEND_URL}/exchanges/public/${exchangeId}/short-markets`;
+  const notify = (window as any).notify;
+  if (notify) {
+    return fetchWithNotify(url, notify, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  } else {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) throw new Error("Failed to fetch short-markets");
+    return await res.json();
   }
 }
 

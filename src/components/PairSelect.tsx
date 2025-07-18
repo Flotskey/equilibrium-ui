@@ -1,13 +1,8 @@
-import { formatWithSubscriptZeros } from "@/utils/format";
 import { Autocomplete, Box, TextField } from "@mui/material";
 
 export interface PairOption {
     label: string;
     value: string;
-    lastPrice: string;
-    priceChange24h: string;
-    high24h: string;
-    low24h: string;
   }
 
 interface PairSelectProps {
@@ -29,7 +24,7 @@ interface PairSelectProps {
       onClose={onClose}
       renderInput={(params) => <TextField {...params} label="Pair" />}
       fullWidth={false}
-      sx={{ minWidth: 380 }}
+      sx={{ minWidth: 240 }}
       disableClearable
       isOptionEqualToValue={(option, value) => option.value === value.value}
       renderOption={(props, option) => {
@@ -42,10 +37,6 @@ interface PairSelectProps {
             sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}
           >
             <span>{option.label}</span>
-            <span style={{ color: '#888' }}>|</span>
-            <span>{formatWithSubscriptZeros(option.lastPrice)}</span>
-            <span style={{ color: '#888' }}>|</span>
-            <span style={{ color: option.priceChange24h.startsWith('-') ? 'red' : 'green', textAlign: 'right' }}>{option.priceChange24h}</span>
           </Box>
         );
       }}
