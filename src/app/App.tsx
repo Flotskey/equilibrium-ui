@@ -3,11 +3,15 @@ import { NotificationProvider, useNotify } from "@/components/NotificationProvid
 import TradingPage from "@/pages/TradingPage";
 import { createTheme, CssBaseline, ThemeProvider } from "@mui/material";
 import { useEffect } from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 
 const router = createBrowserRouter([
   {
     path: "/",
+    element: <Navigate to="/trading" replace />,
+  },
+  {
+    path: "/trading",
     element: <TradingPage />,
   },
 ]);
