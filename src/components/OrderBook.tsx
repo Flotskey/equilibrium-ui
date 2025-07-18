@@ -76,7 +76,7 @@ const OrderBook = ({ exchangeId, symbol }: Props) => {
       askFillParams: { maxAmount: maxAskAmount, minAmount: minAskAmount },
       bidFillParams: { maxAmount: maxBidAmount, minAmount: minBidAmount }
     };
-  }, [exchangeId, symbol]);
+  }, [orderBook]);
 
   if (!orderBook) {
     return (

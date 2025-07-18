@@ -4,10 +4,11 @@ import { CcxtMarket, OhlcvCandle, OhlcvParams, Ticker } from "./types";
 // Helper to wrap fetch and show notification on error
 async function fetchWithNotify(
   url: string,
-  notify: (n: { message: string; severity?: string }) => void
+  notify: (n: { message: string; severity?: string }) => void,
+  options?: RequestInit
 ) {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, options);
 
     if (!res.ok) {
       let errMsg = res.statusText;
@@ -94,14 +95,39 @@ export async function fetchExchangesList(): Promise<string[]> {
   }
 }
 
-export async function fetchShortTickers(exchangeId: string): Promise<Ticker[]> {
+export async function fetchShortTickers(
+  exchangeId: string,
+  body?: Record<string, any>
+): Promise<Ticker[]> {
   const url = `${BACKEND_URL}/exchanges/public/${exchangeId}/short-tickers`;
+
+  // Prepare request body
+  let requestBody: Record<string, any> | undefined;
+
+  // костыль для bybit
+  if (exchangeId === "bybit") {
+    requestBody = { category: "spot" };
+  } else if (body) {
+    requestBody = body;
+  }
 
   const notify = (window as any).notify;
   if (notify) {
-    return fetchWithNotify(url, notify);
+    return fetchWithNotify(url, notify, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: requestBody ? JSON.stringify(requestBody) : undefined,
+    });
   } else {
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: requestBody ? JSON.stringify(requestBody) : undefined,
+    });
 
     if (!res.ok) {
       const errorText = await res.text();
