@@ -9,3 +9,23 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+// Hide scrollbars for react-virtuoso components
+.virtuoso-grid-list {
+  &::-webkit-scrollbar {
+    width: 0px;
+    display: none;
+  }
+  
+  &::-webkit-scrollbar-track {
+    display: none;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    display: none;
+  }
+  
+  &::-webkit-scrollbar-thumb:hover {
+    display: none;
+  }
+}

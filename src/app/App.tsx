@@ -34,9 +34,9 @@ const App = () => {
       <CssBaseline />
       <NotificationProvider>
         <NotifyBridge />
-        <MainLayout>
-          <RouterProvider router={router} />
-        </MainLayout>
+      <MainLayout>
+        <RouterProvider router={router} />
+      </MainLayout>
       </NotificationProvider>
     </ThemeProvider>
   );
