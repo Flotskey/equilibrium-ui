@@ -2,6 +2,7 @@ import OrderManager from '@/components/OrderManager';
 import TradingTopBar from '@/components/TradingTopBar';
 import { fetchExchangesList, fetchShortMarkets } from '@/services/api';
 import { ShortMarketDto } from '@/services/types';
+import { useCredentialsStore } from '@/store/credentialsStore';
 import { Box, Paper } from '@mui/material';
 import Grid2 from '@mui/material/Grid2';
 import { useEffect, useRef, useState } from 'react';
@@ -55,10 +56,16 @@ const TradingPage = () => {
   const [pairsForExchange, setPairsForExchange] = useState<PairOption[]>([]);
   const requestedRef = useRef(false);
   const [pairDropdownOpen, setPairDropdownOpen] = useState(false);
+  const { refreshAllCredentials } = useCredentialsStore();
 
   // Get exchange and symbol from URL query params
   const urlExchangeId = searchParams.get('exchangeId');
   const urlSymbol = searchParams.get('symbol');
+
+  // Initialize credentials store on component mount
+  useEffect(() => {
+    refreshAllCredentials();
+  }, [refreshAllCredentials]);
 
   useEffect(() => {
     if (requestedRef.current) return;
@@ -208,7 +215,11 @@ const TradingPage = () => {
               </Paper>
             </Box>
             <Box sx={{ flex: 5, display: 'flex', flexDirection: 'column', rowGap: '16px', height: '100%' }}>
-              <OrderManager tab={tab} setTab={setTab} />
+              <OrderManager 
+                tab={tab} 
+                setTab={setTab} 
+                selectedExchange={selectedExchange?.value || null}
+              />
             </Box>
           </Box>
         </Grid2>
@@ -222,7 +233,7 @@ const TradingPage = () => {
           )}
         </Grid2>
         <Grid2 size={2.5} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <TradingManager />
+          <TradingManager selectedExchange={selectedExchange?.value || null} />
         </Grid2>
       </Grid2>
     </Box>
