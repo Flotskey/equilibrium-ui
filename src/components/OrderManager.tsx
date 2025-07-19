@@ -17,35 +17,19 @@ const OrderManager = ({ tab, setTab, selectedExchange }: OrderManagerProps) => {
   const { 
     credentialsMap, 
     checkCredentials, 
-    setHasCredentials, 
-    startConnectionRefresh, 
-    stopConnectionRefresh 
+    setHasCredentials
   } = useCredentialsStore();
   const hasCredentials = selectedExchange ? credentialsMap[selectedExchange] || false : false;
 
-  // Check if credentials exist for the selected exchange and manage connection refresh
+  // Check if credentials exist for the selected exchange
   useEffect(() => {
     if (selectedExchange) {
       const hasCreds = checkCredentials(selectedExchange);
       if (hasCreds !== hasCredentials) {
         setHasCredentials(selectedExchange, hasCreds);
       }
-      
-      // Start connection refresh if credentials are available
-      if (hasCreds) {
-        startConnectionRefresh(selectedExchange);
-      } else {
-        stopConnectionRefresh(selectedExchange);
-      }
     }
-    
-    // Cleanup on unmount or exchange change
-    return () => {
-      if (selectedExchange) {
-        stopConnectionRefresh(selectedExchange);
-      }
-    };
-  }, [selectedExchange, checkCredentials, setHasCredentials, hasCredentials, startConnectionRefresh, stopConnectionRefresh]);
+  }, [selectedExchange, checkCredentials, setHasCredentials, hasCredentials]);
 
   const handleUnlock = () => {
     setModalOpen(true);
@@ -54,8 +38,6 @@ const OrderManager = ({ tab, setTab, selectedExchange }: OrderManagerProps) => {
   const handleCredentialsSaved = () => {
     if (selectedExchange) {
       setHasCredentials(selectedExchange, true);
-      // Start connection refresh after credentials are saved
-      startConnectionRefresh(selectedExchange);
     }
   };
 
