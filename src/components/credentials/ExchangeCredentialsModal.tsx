@@ -30,15 +30,15 @@ interface ExchangeCredentialsModalProps {
 }
 
 const CREDENTIAL_FIELDS = [
-  { key: 'apiKey', label: 'API Key', type: 'text' },
+  { key: 'apiKey', label: 'API Key', type: 'password' },
   { key: 'secret', label: 'Secret Key', type: 'password' },
-  { key: 'uid', label: 'UID', type: 'text' },
+  { key: 'uid', label: 'UID', type: 'password' },
   { key: 'login', label: 'Login', type: 'text' },
   { key: 'password', label: 'Password', type: 'password' },
   { key: 'twofa', label: '2FA Code', type: 'text' },
   { key: 'privateKey', label: 'Private Key', type: 'password' },
   { key: 'walletAddress', label: 'Wallet Address', type: 'text' },
-  { key: 'token', label: 'Token', type: 'text' },
+  { key: 'token', label: 'Token', type: 'password' },
 ] as const;
 
 const steps = ['Enter Credentials', 'Set Encryption Password'];
@@ -82,6 +82,8 @@ export const ExchangeCredentialsModal = ({
           const decryptedCredentials = CredentialEncryptionService.decryptCredentials(exchangeId, storedPassword);
           if (decryptedCredentials) {
             setEncryptionPassword(storedPassword);
+            // Set the decrypted credentials in state for auto-save
+            setCredentials(decryptedCredentials);
             // Auto-save with stored password
             handleSaveCredentialsWithPassword(storedPassword);
           } else {
@@ -123,7 +125,7 @@ export const ExchangeCredentialsModal = ({
     }));
   };
 
-  const handleTestConnection = async () => {
+  const handleCreateConnection = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -198,6 +200,17 @@ export const ExchangeCredentialsModal = ({
     }
   };
 
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !loading) {
+      event.preventDefault();
+      if (activeStep === 0) {
+        handleCreateConnection();
+      } else if (activeStep === 1) {
+        handleSaveCredentials();
+      }
+    }
+  };
+
   const renderCredentialFields = () => {
     if (!requiredFields) return null;
 
@@ -256,7 +269,14 @@ export const ExchangeCredentialsModal = ({
   );
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth disableScrollLock={true}>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth 
+      disableScrollLock={true}
+      onKeyPress={handleKeyPress}
+    >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Lock />
@@ -298,7 +318,7 @@ export const ExchangeCredentialsModal = ({
         
         {activeStep === 0 && (
           <Button
-            onClick={handleTestConnection}
+            onClick={handleCreateConnection}
             variant="contained"
             disabled={loading || !requiredFields}
           >
