@@ -2,66 +2,49 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-Currently, two official plugins are available:
+## Firebase Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+This project uses Firebase for authentication and secure credential storage.
 
-## Expanding the ESLint configuration
+### 1. Create a Firebase Project
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project or select an existing one
+3. Enable Authentication with Email/Password provider
+4. Get your Firebase configuration
 
-- Configure the top-level `parserOptions` property like this:
+### 2. Configure Environment Variables
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-});
+Create a `.env` file in the project root with your Firebase configuration:
+
+```env
+# Backend Configuration
+VITE_BACKEND_URL=http://localhost:3000
+
+# Firebase Configuration
+VITE_FIREBASE_API_KEY=your_firebase_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id_here
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here
+VITE_FIREBASE_APP_ID=your_app_id_here
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+### 3. Security Features
 
-```js
-// eslint.config.js
-import react from "eslint-plugin-react";
+- **AES-256 Encryption**: All exchange credentials are encrypted using AES-256-CBC
+- **PBKDF2 Key Derivation**: Master passwords are processed with 100,000 iterations
+- **User-Specific Storage**: Credentials are stored per user in localStorage
+- **Secure Error Handling**: No sensitive data is exposed in error messages
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: "18.3" } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs["jsx-runtime"].rules,
-  },
-});
-```
-
-# Backend API Configuration
+## Backend API Configuration
 
 This project uses a backend API for real-time and historical trading data. The backend URL is configured via an environment variable for flexibility between development and production.
 
-## Setting the Backend URL
+### Setting the Backend URL
 
 Create a `.env` file in the project root (same directory as `package.json`) with the following content:
 
 ```
-VITE_BACKEND_URL=http://localhost:3000
+
 ```
-
-- Change the value to your backend's address as needed (e.g., for production).
-- After editing `.env`, **restart the dev server** (`npm run dev`) for changes to take effect.
-
-The app will use this URL for both REST and WebSocket connections to the backend.

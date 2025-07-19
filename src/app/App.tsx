@@ -1,7 +1,9 @@
 import { MainLayout } from "@/app/layouts";
 import { NotificationProvider, useNotify } from "@/components/NotificationProvider";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import AuthPage from "@/pages/AuthPage";
 import TradingPage from "@/pages/TradingPage";
-import { createTheme, CssBaseline, ThemeProvider } from "@mui/material";
+import { Box, CircularProgress, createTheme, CssBaseline, ThemeProvider } from "@mui/material";
 import { useEffect } from "react";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 
@@ -13,6 +15,10 @@ const router = createBrowserRouter([
   {
     path: "/trading",
     element: <TradingPage />,
+  },
+  {
+    path: "/auth",
+    element: <AuthPage />,
   },
 ]);
 
@@ -32,16 +38,41 @@ function NotifyBridge() {
   return null;
 }
 
+const AppContent = () => {
+  const { user, loading } = useAuth();
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // If not authenticated, show auth page
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  // If authenticated, show protected content
+  return (
+    <MainLayout>
+      <RouterProvider router={router} />
+    </MainLayout>
+  );
+};
+
 const App = () => {
   return (
     <ThemeProvider theme={theme} defaultMode={"dark"}>
       <CssBaseline />
-      <NotificationProvider>
-        <NotifyBridge />
-      <MainLayout>
-        <RouterProvider router={router} />
-      </MainLayout>
-      </NotificationProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <NotifyBridge />
+          <AppContent />
+        </NotificationProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 };

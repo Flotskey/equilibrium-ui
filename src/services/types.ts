@@ -93,3 +93,26 @@ export interface CcxtTicker {
 export interface ShortMarketDto {
   symbol: string;
 }
+
+// Auth and Encryption Types
+export interface AuthUser {
+  uid: string;
+  email: string;
+  displayName?: string;
+  photoURL?: string;
+}
+
+export interface AuthState {
+  user: AuthUser | null;
+  loading: boolean;
+  error: string | null;
+}
+
+export interface EncryptedCredentials {
+  exchangeId: string;
+  encryptedData: string;
+  iv: string;
+  salt: string;
+  createdAt: number;
+  updatedAt: number;
+}

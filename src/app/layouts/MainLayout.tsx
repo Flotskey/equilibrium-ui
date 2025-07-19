@@ -1,11 +1,20 @@
 import { AppBar, SideBar } from "@/components";
+import { useAuth } from "@/contexts/AuthContext";
 import { Box } from "@mui/material";
 import { PropsWithChildren, useState } from "react";
+import { Navigate } from "react-router-dom";
 
 const collapsedWidth = 80;
 
 export const MainLayout = ({children}: PropsWithChildren) => {
     const [isSidebarCollapsed, setSidebarCollapsed] = useState(true);
+    const { user } = useAuth();
+
+    // Redirect to auth if not logged in
+    if (!user) {
+        return <Navigate to="/auth" replace />;
+    }
+
     return (
         <Box sx={{display: "flex", flexDirection: "column"}}>
             <AppBar />
