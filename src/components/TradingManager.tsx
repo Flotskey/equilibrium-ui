@@ -19,6 +19,7 @@ const TradingManager = ({ selectedExchange }: TradingManagerProps) => {
     startConnectionRefresh, 
     stopConnectionRefresh 
   } = useCredentialsStore();
+  
   const hasCredentials = selectedExchange ? credentialsMap[selectedExchange] || false : false;
 
   // Check if credentials exist for the selected exchange and manage connection refresh
