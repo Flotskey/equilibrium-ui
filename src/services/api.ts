@@ -4,6 +4,7 @@ import {
   CcxtMarket,
   CcxtRequiredCredentials,
   CcxtTicker,
+  CreateOrderDto,
   ExchangeCredentialsDto,
   OhlcvCandle,
   OhlcvParams,
@@ -306,5 +307,51 @@ export async function createConnection(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export async function createOrder(dto: CreateOrderDto): Promise<any> {
+  const url = `${BACKEND_URL}/exchanges/private/order`;
+
+  return privateApiCall<any>(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(dto),
+  });
+}
+
+export async function fetchOrders(dto: {
+  exchangeId: string;
+  symbol?: string;
+  params?: Record<string, any>;
+}): Promise<any[]> {
+  const url = `${BACKEND_URL}/exchanges/private/orders`;
+
+  return privateApiCall<any[]>(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(dto),
+  });
+}
+
+export async function fetchTrades(dto: {
+  exchangeId: string;
+  symbol?: string;
+  since?: number;
+  limit?: number;
+  params?: Record<string, any>;
+}): Promise<any[]> {
+  const url = `${BACKEND_URL}/exchanges/private/trades`;
+
+  return privateApiCall<any[]>(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(dto),
   });
 }

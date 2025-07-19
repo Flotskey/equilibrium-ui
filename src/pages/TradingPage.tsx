@@ -205,8 +205,8 @@ const TradingPage = () => {
         pairDropdownOpen={pairDropdownOpen}
       />
       <Grid2 container spacing={2} sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Grid2 size={7} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, rowGap: '16px' }}>
+        <Grid2 size={7} sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, rowGap: '16px' }}>
             <Box sx={{ flex: 6, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <Paper sx={{ p: 2, height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} elevation={2}>
                 {selectedExchange && selectedPair && (
@@ -219,6 +219,7 @@ const TradingPage = () => {
                 tab={tab} 
                 setTab={setTab} 
                 selectedExchange={selectedExchange?.value || null}
+                selectedSymbol={selectedPair?.value || null}
               />
             </Box>
           </Box>
@@ -233,7 +234,10 @@ const TradingPage = () => {
           )}
         </Grid2>
         <Grid2 size={2.5} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <TradingManager selectedExchange={selectedExchange?.value || null} />
+          <TradingManager 
+            selectedExchange={selectedExchange?.value || null} 
+            selectedSymbol={selectedPair?.value || null}
+          />
         </Grid2>
       </Grid2>
     </Box>

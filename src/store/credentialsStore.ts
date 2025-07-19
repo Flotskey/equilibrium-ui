@@ -20,7 +20,7 @@ interface CredentialsState {
   refreshAllCredentials: () => void;
   clearCredentials: (exchangeId: string) => void;
   clearAllCredentials: () => void;
-  testConnection: (exchangeId: string) => Promise<boolean>;
+  createConnection: (exchangeId: string) => Promise<boolean>;
   startConnectionRefresh: (exchangeId: string) => void;
   stopConnectionRefresh: (exchangeId: string) => void;
 }
@@ -137,7 +137,7 @@ export const useCredentialsStore = create<CredentialsState>()(
           return hasCredentials;
         },
 
-        testConnection: async (exchangeId: string) => {
+        createConnection: async (exchangeId: string) => {
           try {
             const password = get().getEncryptionPassword(exchangeId);
             if (!password) {
@@ -149,7 +149,7 @@ export const useCredentialsStore = create<CredentialsState>()(
                   },
                 }),
                 false,
-                "testConnection"
+                "createConnection"
               );
               return false;
             }
@@ -167,7 +167,7 @@ export const useCredentialsStore = create<CredentialsState>()(
                   },
                 }),
                 false,
-                "testConnection"
+                "createConnection"
               );
               return false;
             }
@@ -183,7 +183,7 @@ export const useCredentialsStore = create<CredentialsState>()(
                 },
               }),
               false,
-              "testConnection"
+              "createConnection"
             );
 
             return true;
@@ -197,7 +197,7 @@ export const useCredentialsStore = create<CredentialsState>()(
                 },
               }),
               false,
-              "testConnection"
+              "createConnection"
             );
             return false;
           }
@@ -210,11 +210,11 @@ export const useCredentialsStore = create<CredentialsState>()(
           }
 
           // Test connection immediately
-          get().testConnection(exchangeId);
+          get().createConnection(exchangeId);
 
           // Set up interval for every 2 minutes (120000ms)
           connectionIntervals[exchangeId] = setInterval(() => {
-            get().testConnection(exchangeId);
+            get().createConnection(exchangeId);
           }, 120000);
         },
 

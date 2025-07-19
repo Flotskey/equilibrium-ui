@@ -1,13 +1,45 @@
 import { BACKEND_URL } from "@/config";
+import { getAuth } from "firebase/auth";
 import { io, Socket } from "socket.io-client";
-import { CcxtTicker, OhlcvWsMessage, OrderBook } from "./types";
+import {
+  CcxtOrder,
+  CcxtPosition,
+  CcxtTicker,
+  OhlcvWsMessage,
+  OrderBook,
+} from "./types";
 
 let socket: Socket | null = null;
+let privateSocket: Socket | null = null;
 
 export function getStreamingSocket(): Socket {
   if (socket) return socket;
   socket = io(`${BACKEND_URL}/streaming`);
   return socket;
+}
+
+export async function getPrivateStreamingSocket(): Promise<Socket> {
+  if (privateSocket) return privateSocket;
+
+  // Get Firebase auth instance
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error("No authenticated user found. Please sign in first.");
+  }
+
+  // Get the ID token for authentication
+  const idToken = await currentUser.getIdToken();
+
+  // Create socket with authorization header
+  privateSocket = io(`${BACKEND_URL}/private-streaming`, {
+    auth: {
+      token: idToken,
+    },
+  });
+
+  return privateSocket;
 }
 
 export function watchOhlcv(
@@ -63,6 +95,44 @@ export function watchTicker(
       socket.emit("unWatchTicker", params);
     }, 250);
     socket.off("ticker", onTicker);
+    return () => clearTimeout(unwatchTimeout);
+  };
+}
+
+export function watchOrders(
+  socket: Socket,
+  params: { exchangeId: string; symbol?: string },
+  onOrders: (orders: CcxtOrder[]) => void
+) {
+  const watchTimeout = setTimeout(() => {
+    socket.emit("watchOrders", params);
+  }, 250);
+  socket.on("orders", onOrders);
+  return () => {
+    clearTimeout(watchTimeout);
+    const unwatchTimeout = setTimeout(() => {
+      socket.emit("unWatchOrders", params);
+    }, 250);
+    socket.off("orders", onOrders);
+    return () => clearTimeout(unwatchTimeout);
+  };
+}
+
+export function watchPositions(
+  socket: Socket,
+  params: { exchangeId: string; symbol?: string },
+  onPositions: (positions: CcxtPosition[]) => void
+) {
+  const watchTimeout = setTimeout(() => {
+    socket.emit("watchPositions", params);
+  }, 250);
+  socket.on("positions", onPositions);
+  return () => {
+    clearTimeout(watchTimeout);
+    const unwatchTimeout = setTimeout(() => {
+      socket.emit("unWatchPositions", params);
+    }, 250);
+    socket.off("positions", onPositions);
     return () => clearTimeout(unwatchTimeout);
   };
 }

@@ -1,5 +1,4 @@
 import { fetchMarket, fetchOhlcv, fetchTimeframes } from '@/services/api';
-import type { CcxtMarket } from '@/services/types';
 import { OhlcvWsMessage } from '@/services/types';
 import { getStreamingSocket, watchOhlcv } from '@/services/ws-api';
 import type { TradingChartState } from '@/store/tradingChartStore';
@@ -40,7 +39,6 @@ const PriceChart = ({ exchangeId, symbol }: TradingChartProps) => {
   const dragYRef = useRef<number | null>(null);
   const candleDataRef = useRef<CandlestickData<Time>[]>([]); // holds the current candles
   const [loading, setLoading] = useState(true);
-  const [market, setMarket] = useState<CcxtMarket | null>(null);
   const [pricePrecision, setPricePrecision] = useState(6); // default to 6
 
   // Zustand state
@@ -81,10 +79,9 @@ const PriceChart = ({ exchangeId, symbol }: TradingChartProps) => {
     if (!exchangeId || !symbol) return;
     fetchMarket(exchangeId, symbol)
       .then(mkt => {
-        setMarket(mkt);
         setPricePrecision(stepToPrecision(mkt.precision?.price ?? 1e-6));
       })
-      .catch(() => setMarket(null));
+      .catch(() => setPricePrecision(6));
   }, [exchangeId, symbol]);
 
   // Chart initialization and price lines
