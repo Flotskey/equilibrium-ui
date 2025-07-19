@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import OrderBook from '../components/OrderBook';
 import PriceChart from '../components/PriceChart';
-import TradingForm from '../components/TradingForm';
+import TradingManager from '../components/TradingManager';
 
 interface ExchangeOption {
   label: string;
@@ -222,7 +222,7 @@ const TradingPage = () => {
           )}
         </Grid2>
         <Grid2 size={2.5} sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <TradingForm />
+          <TradingManager />
         </Grid2>
       </Grid2>
     </Box>

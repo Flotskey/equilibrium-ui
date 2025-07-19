@@ -1,9 +1,9 @@
 import { Paper } from '@mui/material';
 
-const TradingForm = () => (
+const TradingManager = () => (
   <Paper sx={{ flex: 1, p: 2, minHeight: 240, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-    Trading Form
+    Trading Manager
   </Paper>
 );
 
-export default TradingForm; 
+export default TradingManager; 
