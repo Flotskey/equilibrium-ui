@@ -154,10 +154,11 @@ export const useCredentialsStore = create<CredentialsState>()(
               return false;
             }
 
-            const credentials = CredentialEncryptionService.decryptCredentials(
-              exchangeId,
-              password
-            );
+            const credentials =
+              await CredentialEncryptionService.decryptCredentials(
+                exchangeId,
+                password
+              );
             if (!credentials) {
               set(
                 (state) => ({

@@ -14,10 +14,22 @@ interface SymbolTickerInfoProps {
     useEffect(() => {
       setTicker(null); // Clear ticker on symbol/exchange change
       if (!exchangeId || !symbol) return;
+      
       const socket = getStreamingSocket();
-      const unsub = watchTicker(socket, { exchangeId, symbol }, setTicker);
+      let unsub: (() => void) | null = null;
+      
+      watchTicker(socket, { exchangeId, symbol }, setTicker)
+        .then((unsubscribe) => {
+          unsub = unsubscribe;
+        })
+        .catch((error) => {
+          console.error(`Failed to setup Ticker subscription for ${exchangeId}/${symbol}:`, error);
+        });
+        
       return () => {
-        unsub();
+        if (unsub) {
+          unsub();
+        }
       }
     }, [exchangeId, symbol]);
   

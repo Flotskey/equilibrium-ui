@@ -230,3 +230,12 @@ export interface CcxtPosition {
   takeProfitPrice?: number;
   percentage?: number;
 }
+
+export interface CcxtBalance {
+  free: number;
+  used: number;
+  total: number;
+  debt?: number;
+}
+
+export type CcxtBalances = Record<string, CcxtBalance>;

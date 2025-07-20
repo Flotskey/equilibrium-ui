@@ -1,6 +1,7 @@
 import { BACKEND_URL } from "@/config";
 import { auth } from "@/services/firebase";
 import {
+  CcxtBalances,
   CcxtMarket,
   CcxtRequiredCredentials,
   CcxtTicker,
@@ -353,5 +354,16 @@ export async function fetchTrades(dto: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(dto),
+  });
+}
+
+export async function fetchBalance(exchangeId: string): Promise<CcxtBalances> {
+  const url = `${BACKEND_URL}/exchanges/private/balance`;
+  return privateApiCall<CcxtBalances>(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ exchangeId }),
   });
 }

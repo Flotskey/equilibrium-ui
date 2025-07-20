@@ -79,21 +79,24 @@ export const ExchangeCredentialsModal = ({
         const storedPassword = getEncryptionPassword(exchangeId);
         if (storedPassword) {
           // Validate stored password using the new validation function
-          if (CredentialEncryptionService.validateCredentials(exchangeId, storedPassword)) {
-            const decryptedCredentials = CredentialEncryptionService.decryptCredentials(exchangeId, storedPassword);
-            if (decryptedCredentials) {
-              setEncryptionPassword(storedPassword);
-              // Set the decrypted credentials in state for auto-save
-              setCredentials(decryptedCredentials);
-              // Auto-save with stored password
-              handleSaveCredentialsWithPassword(storedPassword);
+          CredentialEncryptionService.validateCredentials(exchangeId, storedPassword).then(isValid => {
+            if (isValid) {
+              CredentialEncryptionService.decryptCredentials(exchangeId, storedPassword).then(decryptedCredentials => {
+                if (decryptedCredentials) {
+                  setEncryptionPassword(storedPassword);
+                  // Set the decrypted credentials in state for auto-save
+                  setCredentials(decryptedCredentials);
+                  // Auto-save with stored password
+                  handleSaveCredentialsWithPassword(storedPassword);
+                }
+              });
+            } else {
+              // Stored password is invalid, clear it and let user enter new one
+              setEncryptionPassword('');
+              // Clear the invalid password from sessionStorage
+              clearEncryptionPassword(exchangeId);
             }
-          } else {
-            // Stored password is invalid, clear it and let user enter new one
-            setEncryptionPassword('');
-            // Clear the invalid password from sessionStorage
-            clearEncryptionPassword(exchangeId);
-          }
+          });
         }
       } else {
         // Start with credentials step if no encrypted credentials exist
@@ -152,7 +155,7 @@ export const ExchangeCredentialsModal = ({
       setError(null);
       
       // Encrypt and store credentials
-      CredentialEncryptionService.encryptAndStore(
+      await CredentialEncryptionService.encryptAndStore(
         exchangeId,
         credentials,
         password
@@ -189,7 +192,8 @@ export const ExchangeCredentialsModal = ({
     const hasEncryptedCredentials = CredentialEncryptionService.hasCredentials(exchangeId);
     if (hasEncryptedCredentials) {
       // Validate password using the new validation function
-      if (!CredentialEncryptionService.validateCredentials(exchangeId, encryptionPassword)) {
+      const isValid = await CredentialEncryptionService.validateCredentials(exchangeId, encryptionPassword);
+      if (!isValid) {
         setError('Invalid encryption password. Please try again.');
         return;
       }
@@ -254,15 +258,17 @@ export const ExchangeCredentialsModal = ({
         fullWidth
         required
         disabled={loading}
-        InputProps={{
-          endAdornment: (
-            <IconButton
-              onClick={() => setShowPassword(!showPassword)}
-              edge="end"
-            >
-              {showPassword ? <VisibilityOff /> : <Visibility />}
-            </IconButton>
-          ),
+        slotProps={{
+          input: {
+            endAdornment: (
+              <IconButton
+                onClick={() => setShowPassword(!showPassword)}
+                edge="end"
+              >
+                {showPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            ),
+          }
         }}
       />
       

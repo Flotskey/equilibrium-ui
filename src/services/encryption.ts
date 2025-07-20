@@ -1,44 +1,116 @@
-import CryptoJS from "crypto-js";
 import { EncryptedCredentials, ExchangeCredentialsDto } from "./types";
 
 const CREDENTIALS_STORAGE_KEY = "equilibrium_encrypted_credentials";
 
 export class CredentialEncryptionService {
   /**
+   * Convert string to ArrayBuffer
+   */
+  private static stringToArrayBuffer(str: string): ArrayBuffer {
+    const encoder = new TextEncoder();
+    return encoder.encode(str).buffer;
+  }
+
+  /**
+   * Convert ArrayBuffer to string
+   */
+  private static arrayBufferToString(buffer: ArrayBuffer): string {
+    const decoder = new TextDecoder();
+    return decoder.decode(buffer);
+  }
+
+  /**
+   * Convert ArrayBuffer to base64 string
+   */
+  private static arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    return base64;
+  }
+
+  /**
+   * Convert base64 string to ArrayBuffer
+   */
+  private static base64ToArrayBuffer(base64: string): ArrayBuffer {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const buffer = bytes.buffer;
+    return buffer;
+  }
+
+  /**
+   * Generate a key from password using PBKDF2
+   */
+  private static async deriveKey(
+    password: string,
+    salt: ArrayBuffer
+  ): Promise<CryptoKey> {
+    const encoder = new TextEncoder();
+    const passwordBuffer = encoder.encode(password);
+
+    const baseKey = await crypto.subtle.importKey(
+      "raw",
+      passwordBuffer,
+      "PBKDF2",
+      false,
+      ["deriveBits", "deriveKey"]
+    );
+
+    return crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256",
+      },
+      baseKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  /**
    * Encrypt credentials with password and store in localStorage
    */
-  static encryptAndStore(
+  static async encryptAndStore(
     exchangeId: string,
     credentials: ExchangeCredentialsDto,
     password: string
-  ): void {
+  ): Promise<void> {
     try {
       // Generate salt and IV
-      const salt = CryptoJS.lib.WordArray.random(128 / 8);
-      const iv = CryptoJS.lib.WordArray.random(128 / 8);
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12)); // GCM uses 12 bytes
 
-      // Derive key from password and salt
-      const key = CryptoJS.PBKDF2(password, salt, {
-        keySize: 256 / 32,
-        iterations: 10000, // Increased iterations for better security
-      });
+      // Derive key from password
+      const key = await this.deriveKey(password, salt.buffer);
 
       // Convert credentials to JSON string
       const credentialsString = JSON.stringify(credentials);
 
-      // Encrypt the credentials
-      const encrypted = CryptoJS.AES.encrypt(credentialsString, key, {
-        iv: iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7,
-      });
+      const dataBuffer = this.stringToArrayBuffer(credentialsString);
+
+      // Encrypt the data
+      const encryptedBuffer = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        dataBuffer
+      );
 
       // Create encrypted credentials object
       const encryptedCreds: EncryptedCredentials = {
         exchangeId,
-        encryptedData: encrypted.toString(),
-        iv: iv.toString(CryptoJS.enc.Hex),
-        salt: salt.toString(CryptoJS.enc.Hex),
+        encryptedData: this.arrayBufferToBase64(encryptedBuffer),
+        iv: this.arrayBufferToBase64(iv.buffer),
+        salt: this.arrayBufferToBase64(salt.buffer),
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -47,8 +119,10 @@ export class CredentialEncryptionService {
       const existing = this.getAllEncryptedCredentials();
       existing[exchangeId] = encryptedCreds;
       localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(existing));
+
+      // Test decryption immediately
+      const testDecrypted = await this.decryptCredentials(exchangeId, password);
     } catch (error) {
-      console.error("Failed to encrypt credentials:", error);
       throw new Error(
         `Encryption failed: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -60,44 +134,36 @@ export class CredentialEncryptionService {
   /**
    * Decrypt credentials from localStorage using password
    */
-  static decryptCredentials(
+  static async decryptCredentials(
     exchangeId: string,
     password: string
-  ): ExchangeCredentialsDto | null {
+  ): Promise<ExchangeCredentialsDto | null> {
     try {
       const encryptedCreds = this.getEncryptedCredentials(exchangeId);
       if (!encryptedCreds) {
-        console.log("No encrypted credentials found for exchange:", exchangeId);
         return null;
       }
 
-      // Parse salt and IV from hex strings
-      const salt = CryptoJS.enc.Hex.parse(encryptedCreds.salt);
-      const iv = CryptoJS.enc.Hex.parse(encryptedCreds.iv);
-
-      // Recreate key from password and salt
-      const key = CryptoJS.PBKDF2(password, salt, {
-        keySize: 256 / 32,
-        iterations: 10000, // Must match encryption iterations
-      });
-
-      // Decrypt
-      const decrypted = CryptoJS.AES.decrypt(
-        encryptedCreds.encryptedData,
-        key,
-        {
-          iv: iv,
-          mode: CryptoJS.mode.CBC,
-          padding: CryptoJS.pad.Pkcs7,
-        }
+      // Convert base64 strings back to ArrayBuffers
+      const salt = this.base64ToArrayBuffer(encryptedCreds.salt);
+      const iv = this.base64ToArrayBuffer(encryptedCreds.iv);
+      const encryptedData = this.base64ToArrayBuffer(
+        encryptedCreds.encryptedData
       );
 
-      const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
+      // Recreate key from password and salt
+      const key = await this.deriveKey(password, salt);
+
+      // Decrypt
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        encryptedData
+      );
+
+      const decryptedString = this.arrayBufferToString(decryptedBuffer);
 
       if (!decryptedString) {
-        console.error(
-          "Decryption resulted in empty string - likely wrong password"
-        );
         return null;
       }
 
@@ -105,10 +171,10 @@ export class CredentialEncryptionService {
 
       return parsedCredentials;
     } catch (error) {
-      console.error("Failed to decrypt credentials:", error);
+      console.error("🔓 [DECRYPT] Failed to decrypt credentials:", error);
       if (error instanceof SyntaxError) {
         console.error(
-          "JSON parsing failed - likely wrong password or corrupted data"
+          "🔓 [DECRYPT] JSON parsing failed - likely wrong password or corrupted data"
         );
       }
       return null;
@@ -118,7 +184,7 @@ export class CredentialEncryptionService {
   /**
    * Test encryption/decryption with sample data
    */
-  static testEncryption(password: string): boolean {
+  static async testEncryption(password: string): Promise<boolean> {
     try {
       const testCredentials: ExchangeCredentialsDto = {
         apiKey: "test-api-key",
@@ -126,13 +192,16 @@ export class CredentialEncryptionService {
         uid: "test-uid",
       };
 
-      console.log("Testing encryption with sample data:", testCredentials);
+      console.log("Testing encryption with sample data");
 
       // Encrypt
-      this.encryptAndStore("test-exchange", testCredentials, password);
+      await this.encryptAndStore("test-exchange", testCredentials, password);
 
       // Decrypt
-      const decrypted = this.decryptCredentials("test-exchange", password);
+      const decrypted = await this.decryptCredentials(
+        "test-exchange",
+        password
+      );
 
       // Clean up test data
       this.removeCredentials("test-exchange");
@@ -195,56 +264,27 @@ export class CredentialEncryptionService {
   }
 
   /**
-   * Migrate old credentials format or clear corrupted data
-   * This should only be called once during app initialization
-   */
-  static migrateCredentials(): void {
-    try {
-      console.log("Starting credentials migration...");
-
-      const all = this.getAllEncryptedCredentials();
-      const exchanges = Object.keys(all);
-
-      if (exchanges.length === 0) {
-        console.log("No credentials to migrate");
-        return;
-      }
-
-      console.log("Found credentials for exchanges:", exchanges);
-
-      // Check if migration has already been done
-      const migrationKey = "equilibrium_credentials_migrated";
-      const hasMigrated = localStorage.getItem(migrationKey);
-
-      if (hasMigrated) {
-        console.log("Migration already completed, skipping");
-        return;
-      }
-
-      // For now, clear all existing credentials to force re-entry
-      // This ensures we use the new encryption format
-      this.clearAllCredentials();
-      console.log("Cleared all existing credentials for migration");
-
-      // Mark migration as completed
-      localStorage.setItem(migrationKey, "true");
-    } catch (error) {
-      console.error("Migration failed:", error);
-      // If migration fails, clear everything to be safe
-      this.clearAllCredentials();
-    }
-  }
-
-  /**
    * Validate that credentials can be decrypted with the given password
    */
-  static validateCredentials(exchangeId: string, password: string): boolean {
+  static async validateCredentials(
+    exchangeId: string,
+    password: string
+  ): Promise<boolean> {
     try {
-      const decrypted = this.decryptCredentials(exchangeId, password);
+      const decrypted = await this.decryptCredentials(exchangeId, password);
       return decrypted !== null && Object.keys(decrypted).length > 0;
     } catch (error) {
       console.error("Credential validation failed:", error);
       return false;
     }
+  }
+
+  /**
+   * Debug function to clear all credentials and start fresh
+   */
+  static debugClearAll(): void {
+    console.log("🧹 [DEBUG] Clearing all credentials for fresh start");
+    this.clearAllCredentials();
+    console.log("🧹 [DEBUG] All credentials cleared");
   }
 }

@@ -226,11 +226,21 @@ const PriceChart = ({ exchangeId, symbol }: TradingChartProps) => {
     console.log(`Setting up WebSocket subscription for ${exchangeId}/${symbol}/${tf}`);
     
     // Subscribe to WebSocket stream
-    const unsub = watchOhlcv(socket, { exchangeId, symbol, timeframe: tf }, handleCandle);
+    let unsub: (() => void) | null = null;
+    
+    watchOhlcv(socket, { exchangeId, symbol, timeframe: tf }, handleCandle)
+      .then((unsubscribe) => {
+        unsub = unsubscribe;
+      })
+      .catch((error) => {
+        console.error(`Failed to setup WebSocket subscription for ${exchangeId}/${symbol}/${tf}:`, error);
+      });
     
     return () => {
       console.log(`Cleaning up WebSocket subscription for ${exchangeId}/${symbol}/${tf}`);
-      unsub();
+      if (unsub) {
+        unsub();
+      }
     };
   }, [exchangeId, symbol, selectedTimeframeIdx, timeframes]); // Include timeframe dependencies
 

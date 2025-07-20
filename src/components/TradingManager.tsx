@@ -1,5 +1,5 @@
 import { useNotify } from '@/components/NotificationProvider';
-import { usePrivateConnection } from '@/hooks';
+import { useBalance, usePrivateConnection } from '@/hooks';
 import { createOrder, fetchMarket } from '@/services/api';
 import { CcxtMarket } from '@/services/types';
 import { TrendingDown, TrendingUp } from '@mui/icons-material';
@@ -46,8 +46,9 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
   const [orderLoading, setOrderLoading] = useState(false);
   const [marketInfo, setMarketInfo] = useState<CcxtMarket | null>(null);
   
-  // Use custom hook for connection management
+  // Use custom hooks for connection and balance management
   const { hasCredentials } = usePrivateConnection({ exchangeId: selectedExchange });
+  const { getFreeBalance, loading: balanceLoading, hasInitialData } = useBalance({ exchangeId: selectedExchange });
   const notify = useNotify();
 
   // Order form state
@@ -309,7 +310,19 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
           Available Balance
         </Typography>
         <Typography variant="body2">
-          -- {marketInfo?.quote || 'USDT'}
+          {balanceLoading ? (
+            <CircularProgress size={16} />
+          ) : marketInfo?.quote ? (
+            hasInitialData ? (
+              `${getFreeBalance(marketInfo.quote).toFixed(2)} ${marketInfo.quote}`
+            ) : (
+              <span style={{ color: '#888', fontStyle: 'italic' }}>
+                No balance data
+              </span>
+            )
+          ) : (
+            `-- ${marketInfo?.quote || 'USDT'}`
+          )}
         </Typography>
       </Box>
 
@@ -323,8 +336,10 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
           fullWidth
           size="small"
           sx={{ mb: 2 }}
-          InputProps={{
-            endAdornment: <Typography variant="caption">{marketInfo?.quote || 'USDT'}</Typography>
+          slotProps={{
+            input: {
+              endAdornment: <Typography variant="caption">{marketInfo?.quote || 'USDT'}</Typography>
+            }
           }}
         />
       )}
@@ -338,15 +353,17 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
         fullWidth
         size="small"
         sx={{ mb: 1 }}
-        InputProps={{
-          endAdornment: <Typography variant="caption">
-            {marketInfo?.base || selectedSymbol?.split('/')[0] || 'COIN'}
-          </Typography>
+        slotProps={{
+          input: {
+            endAdornment: <Typography variant="caption">
+              {marketInfo?.base || selectedSymbol?.split('/')[0] || 'COIN'}
+            </Typography>
+          }
         }}
       />
 
       {/* Percentage Slider */}
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, px: 1.5 }}>
         <Slider
           value={orderData.percentage}
           onChange={(_, value) => handlePercentageChange(value as number)}
@@ -371,20 +388,12 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
         fullWidth
         size="small"
         sx={{ mb: 2 }}
-        InputProps={{
-          endAdornment: <Typography variant="caption">{marketInfo?.quote || 'USDT'}</Typography>
+        slotProps={{
+          input: {
+            endAdornment: <Typography variant="caption">{marketInfo?.quote || 'USDT'}</Typography>
+          }
         }}
       />
-
-      {/* Max Buy/Sell Amount */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          Max {orderData.side === 'buy' ? 'buy' : 'sell'}
-        </Typography>
-        <Typography variant="body2">
-          -- {marketInfo?.base || selectedSymbol?.split('/')[0] || 'COIN'}
-        </Typography>
-      </Box>
 
       {/* TP/SL Checkboxes */}
       {/* TODO: Exchange-specific params mapping */}

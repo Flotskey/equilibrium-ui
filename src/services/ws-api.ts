@@ -2,6 +2,7 @@ import { BACKEND_URL } from "@/config";
 import { getAuth } from "firebase/auth";
 import { io, Socket } from "socket.io-client";
 import {
+  CcxtBalances,
   CcxtOrder,
   CcxtPosition,
   CcxtTicker,
@@ -42,97 +43,171 @@ export async function getPrivateStreamingSocket(): Promise<Socket> {
   return privateSocket;
 }
 
-export function watchOhlcv(
+/**
+ * Wait for socket to be connected
+ */
+async function waitForSocketConnection(socket: Socket): Promise<void> {
+  if (socket.connected) {
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Socket connection timeout"));
+    }, 10000); // 10 second timeout
+
+    if (socket.connected) {
+      clearTimeout(timeout);
+      resolve();
+      return;
+    }
+
+    socket.once("connect", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+
+    socket.once("connect_error", (error) => {
+      clearTimeout(timeout);
+      reject(new Error(`Socket connection failed: ${error.message}`));
+    });
+  });
+}
+
+export async function watchOhlcv(
   socket: Socket,
   params: { exchangeId: string; symbol: string; timeframe: string },
   onCandle: (candle: OhlcvWsMessage) => void
-) {
-  const watchTimeout = setTimeout(() => {
+): Promise<() => void> {
+  try {
+    await waitForSocketConnection(socket);
+
+    console.log("📊 [WS] Watching OHLCV:", params);
     socket.emit("watchOhlcv", params);
-  }, 250);
-  socket.on("ohlcv", onCandle);
-  return () => {
-    clearTimeout(watchTimeout);
-    const unwatchTimeout = setTimeout(() => {
+    socket.on("ohlcv", onCandle);
+
+    return () => {
+      console.log("📊 [WS] Unwatching OHLCV:", params);
       socket.emit("unWatchOhlcv", params);
-    }, 250);
-    socket.off("ohlcv", onCandle);
-    return () => clearTimeout(unwatchTimeout);
-  };
+      socket.off("ohlcv", onCandle);
+    };
+  } catch (error) {
+    console.error("📊 [WS] Failed to watch OHLCV:", error);
+    throw error;
+  }
 }
 
-export function watchOrderBook(
+export async function watchOrderBook(
   socket: Socket,
   params: { exchangeId: string; symbol: string },
   onOrderBook: (orderBook: OrderBook) => void
-) {
-  const watchTimeout = setTimeout(() => {
+): Promise<() => void> {
+  try {
+    await waitForSocketConnection(socket);
+
+    console.log("📚 [WS] Watching OrderBook:", params);
     socket.emit("watchOrderBook", params);
-  }, 250);
-  socket.on("orderbook", onOrderBook);
-  return () => {
-    clearTimeout(watchTimeout);
-    const unwatchTimeout = setTimeout(() => {
+    socket.on("orderbook", onOrderBook);
+
+    return () => {
+      console.log("📚 [WS] Unwatching OrderBook:", params);
       socket.emit("unWatchOrderBook", params);
-    }, 250);
-    socket.off("orderbook", onOrderBook);
-    return () => clearTimeout(unwatchTimeout);
-  };
+      socket.off("orderbook", onOrderBook);
+    };
+  } catch (error) {
+    console.error("📚 [WS] Failed to watch OrderBook:", error);
+    throw error;
+  }
 }
 
-export function watchTicker(
+export async function watchTicker(
   socket: Socket,
   params: { exchangeId: string; symbol: string },
   onTicker: (ticker: CcxtTicker) => void
-) {
-  const watchTimeout = setTimeout(() => {
+): Promise<() => void> {
+  try {
+    await waitForSocketConnection(socket);
+
+    console.log("📈 [WS] Watching Ticker:", params);
     socket.emit("watchTicker", params);
-  }, 250);
-  socket.on("ticker", onTicker);
-  return () => {
-    clearTimeout(watchTimeout);
-    const unwatchTimeout = setTimeout(() => {
+    socket.on("ticker", onTicker);
+
+    return () => {
+      console.log("📈 [WS] Unwatching Ticker:", params);
       socket.emit("unWatchTicker", params);
-    }, 250);
-    socket.off("ticker", onTicker);
-    return () => clearTimeout(unwatchTimeout);
-  };
+      socket.off("ticker", onTicker);
+    };
+  } catch (error) {
+    console.error("📈 [WS] Failed to watch Ticker:", error);
+    throw error;
+  }
 }
 
-export function watchOrders(
+export async function watchOrders(
   socket: Socket,
   params: { exchangeId: string; symbol?: string },
   onOrders: (orders: CcxtOrder[]) => void
-) {
-  const watchTimeout = setTimeout(() => {
+): Promise<() => void> {
+  try {
+    await waitForSocketConnection(socket);
+
+    console.log("📋 [WS] Watching Orders:", params);
     socket.emit("watchOrders", params);
-  }, 250);
-  socket.on("orders", onOrders);
-  return () => {
-    clearTimeout(watchTimeout);
-    const unwatchTimeout = setTimeout(() => {
+    socket.on("orders", onOrders);
+
+    return () => {
+      console.log("📋 [WS] Unwatching Orders:", params);
       socket.emit("unWatchOrders", params);
-    }, 250);
-    socket.off("orders", onOrders);
-    return () => clearTimeout(unwatchTimeout);
-  };
+      socket.off("orders", onOrders);
+    };
+  } catch (error) {
+    console.error("📋 [WS] Failed to watch Orders:", error);
+    throw error;
+  }
 }
 
-export function watchPositions(
+export async function watchPositions(
   socket: Socket,
   params: { exchangeId: string; symbol?: string },
   onPositions: (positions: CcxtPosition[]) => void
-) {
-  const watchTimeout = setTimeout(() => {
+): Promise<() => void> {
+  try {
+    await waitForSocketConnection(socket);
+
+    console.log("💰 [WS] Watching Positions:", params);
     socket.emit("watchPositions", params);
-  }, 250);
-  socket.on("positions", onPositions);
-  return () => {
-    clearTimeout(watchTimeout);
-    const unwatchTimeout = setTimeout(() => {
+    socket.on("positions", onPositions);
+
+    return () => {
+      console.log("💰 [WS] Unwatching Positions:", params);
       socket.emit("unWatchPositions", params);
-    }, 250);
-    socket.off("positions", onPositions);
-    return () => clearTimeout(unwatchTimeout);
-  };
+      socket.off("positions", onPositions);
+    };
+  } catch (error) {
+    console.error("💰 [WS] Failed to watch Positions:", error);
+    throw error;
+  }
+}
+
+export async function watchBalance(
+  socket: Socket,
+  params: { exchangeId: string },
+  onBalance: (balance: CcxtBalances) => void
+): Promise<() => void> {
+  try {
+    await waitForSocketConnection(socket);
+
+    console.log("💳 [WS] Watching Balance:", params);
+    socket.emit("watchBalance", params);
+    socket.on("balance", onBalance);
+
+    return () => {
+      console.log("💳 [WS] Unwatching Balance:", params);
+      socket.emit("unWatchBalance", params);
+      socket.off("balance", onBalance);
+    };
+  } catch (error) {
+    console.error("💳 [WS] Failed to watch Balance:", error);
+    throw error;
+  }
 }

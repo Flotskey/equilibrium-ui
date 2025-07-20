@@ -63,7 +63,7 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
         }
 
         // Start orders stream
-        ordersCleanupRef.current = watchOrders(
+        ordersCleanupRef.current = await watchOrders(
           socket,
           { exchangeId: selectedExchange, symbol: selectedSymbol || undefined },
           (newOrders) => {
@@ -72,7 +72,7 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
         );
 
         // Start positions stream
-        positionsCleanupRef.current = watchPositions(
+        positionsCleanupRef.current = await watchPositions(
           socket,
           { exchangeId: selectedExchange, symbol: selectedSymbol || undefined },
           (newPositions) => {

@@ -49,11 +49,22 @@ const OrderBook = ({ exchangeId, symbol }: Props) => {
   
   useEffect(() => {
     const socket = getStreamingSocket();
-    const unsub = watchOrderBook(socket, { exchangeId, symbol }, setOrderBook); 
+    let unsub: (() => void) | null = null;
+    
+    watchOrderBook(socket, { exchangeId, symbol }, setOrderBook)
+      .then((unsubscribe) => {
+        unsub = unsubscribe;
+      })
+      .catch((error) => {
+        console.error(`Failed to setup OrderBook subscription for ${exchangeId}/${symbol}:`, error);
+      });
+      
     return () => {
-      unsub();
+      if (unsub) {
+        unsub();
+      }
     };
-  }, [exchangeId, symbol]); 
+  }, [exchangeId, symbol]);
 
   // Calculate fill parameters using logarithmic scale for better visibility
   const { askFillParams, bidFillParams } = useMemo(() => {
