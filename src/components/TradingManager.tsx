@@ -2,12 +2,15 @@ import { useNotify } from '@/components/NotificationProvider';
 import { useBalance, usePrivateConnection } from '@/hooks';
 import { createOrder, fetchMarket } from '@/services/api';
 import { CcxtMarket } from '@/services/types';
+import { buildTpSlOrderParams } from '@/utils/exchangeParams';
 import { TrendingDown, TrendingUp } from '@mui/icons-material';
 import {
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Divider,
+  FormControlLabel,
   Paper,
   Slider,
   TextField,
@@ -98,11 +101,6 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
     setModalOpen(true);
   };
 
-  const handleCredentialsSaved = () => {
-    // Connection refresh is now handled automatically by the usePrivateConnection hook
-    // when credentials are saved and the component re-renders
-  };
-
   // Handle order side change (buy/sell)
   const handleSideChange = (side: OrderSide) => {
     setOrderData(prev => ({ ...prev, side }));
@@ -118,15 +116,35 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
     setOrderData(prev => {
       const newData = { ...prev, [field]: value };
       
-      // Auto-calculate total when price or amount changes
-      if (field === 'price' || field === 'amount') {
-        const price = field === 'price' ? parseFloat(value as string) : parseFloat(prev.price);
-        const amount = field === 'amount' ? parseFloat(value as string) : parseFloat(prev.amount);
-        
-        if (!isNaN(price) && !isNaN(amount)) {
-          newData.total = (price * amount).toFixed(8);
-        } else {
-          newData.total = '';
+      // Reset percentage when user manually enters values
+      if (field === 'price' || field === 'amount' || field === 'total') {
+        newData.percentage = 0;
+      }
+      
+      // Auto-calculate related fields
+      if (field === 'price') {
+        // When price changes, recalculate total from amount
+        if (prev.amount && !isNaN(parseFloat(prev.amount))) {
+          const calculatedTotal = calculateTotalFromAmount(prev.amount);
+          if (calculatedTotal) {
+            newData.total = calculatedTotal;
+          }
+        }
+      } else if (field === 'amount') {
+        // When amount changes, recalculate total
+        if (prev.type === 'limit' && prev.price) {
+          const calculatedTotal = calculateTotalFromAmount(value as string);
+          if (calculatedTotal) {
+            newData.total = calculatedTotal;
+          }
+        }
+      } else if (field === 'total') {
+        // When total changes, recalculate amount for limit orders
+        if (prev.type === 'limit' && prev.price) {
+          const calculatedAmount = calculateAmountFromTotal(value as string);
+          if (calculatedAmount) {
+            newData.amount = calculatedAmount;
+          }
         }
       }
       
@@ -137,7 +155,59 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
   // Handle percentage slider change
   const handlePercentageChange = (percentage: number) => {
     setOrderData(prev => ({ ...prev, percentage }));
-    // TODO: Calculate amount based on available balance
+    
+    // Calculate amount based on available balance and percentage
+    if (marketInfo?.quote && hasInitialData) {
+      const availableBalance = getFreeBalance(marketInfo.quote);
+      const percentageAmount = (availableBalance * percentage) / 100;
+      
+      if (orderData.type === 'limit' && orderData.price) {
+        // For limit orders, calculate amount from total and price
+        const price = parseFloat(orderData.price);
+        if (!isNaN(price) && price > 0) {
+          const calculatedAmount = percentageAmount / price;
+          setOrderData(prev => ({
+            ...prev,
+            percentage,
+            amount: calculatedAmount.toFixed(8),
+            total: percentageAmount.toFixed(8)
+          }));
+        }
+      } else {
+        // For market orders, set total directly
+        setOrderData(prev => ({
+          ...prev,
+          percentage,
+          total: percentageAmount.toFixed(8)
+        }));
+      }
+    }
+  };
+
+  // Calculate amount from total (when user enters total manually)
+  const calculateAmountFromTotal = (total: string) => {
+    if (orderData.type === 'limit' && orderData.price) {
+      const totalValue = parseFloat(total);
+      const price = parseFloat(orderData.price);
+      if (!isNaN(totalValue) && !isNaN(price) && price > 0) {
+        const calculatedAmount = totalValue / price;
+        return calculatedAmount.toFixed(8);
+      }
+    }
+    return '';
+  };
+
+  // Calculate total from amount (when user enters amount manually)
+  const calculateTotalFromAmount = (amount: string) => {
+    if (orderData.type === 'limit' && orderData.price) {
+      const amountValue = parseFloat(amount);
+      const price = parseFloat(orderData.price);
+      if (!isNaN(amountValue) && !isNaN(price)) {
+        const calculatedTotal = amountValue * price;
+        return calculatedTotal.toFixed(8);
+      }
+    }
+    return '';
   };
 
   // Handle order submission
@@ -161,13 +231,25 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
     try {
       const orderParams: any = {};
       
-      // Add TP/SL if enabled
+      // Get exchange-specific TP/SL parameter names
+      const tpSlParams = buildTpSlOrderParams(
+        selectedExchange,
+        orderData.side,
+        orderData.takeProfit ? orderData.tpPrice : undefined,
+        orderData.stopLoss ? orderData.slPrice : undefined
+      );
+      
+      // Add TP/SL if enabled with exchange-specific parameter names
       if (orderData.takeProfit && orderData.tpPrice) {
-        orderParams.takeProfit = parseFloat(orderData.tpPrice);
+        // TP/SL params are now included in tpSlParams object
+        Object.assign(orderParams, tpSlParams);
       }
       if (orderData.stopLoss && orderData.slPrice) {
-        orderParams.stopLoss = parseFloat(orderData.slPrice);
+        // TP/SL params are now included in tpSlParams object
+        Object.assign(orderParams, tpSlParams);
       }
+
+      console.log(`Creating order for ${selectedExchange} with params:`, orderParams);
 
       const order = await createOrder({
         exchangeId: selectedExchange,
@@ -233,7 +315,6 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
             open={modalOpen}
             onClose={() => setModalOpen(false)}
             exchangeId={selectedExchange}
-            onCredentialsSaved={handleCredentialsSaved}
           />
         )}
       </>
@@ -364,6 +445,14 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
 
       {/* Percentage Slider */}
       <Box sx={{ mb: 2, px: 1.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Use Balance
+          </Typography>
+          <Typography variant="body2" fontWeight={500}>
+            {orderData.percentage}%
+          </Typography>
+        </Box>
         <Slider
           value={orderData.percentage}
           onChange={(_, value) => handlePercentageChange(value as number)}
@@ -377,6 +466,11 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
           ]}
           sx={{ mt: 1 }}
         />
+        {orderData.percentage > 0 && marketInfo?.quote && hasInitialData && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Using {(getFreeBalance(marketInfo.quote) * orderData.percentage / 100).toFixed(2)} {marketInfo.quote} of {getFreeBalance(marketInfo.quote).toFixed(2)} {marketInfo.quote}
+          </Typography>
+        )}
       </Box>
 
       {/* Total Input */}
@@ -396,33 +490,39 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
       />
 
       {/* TP/SL Checkboxes */}
-      {/* TODO: Exchange-specific params mapping */}
-      {/* <Box sx={{ mb: 2 }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={orderData.takeProfit}
-              onChange={(e) => setOrderData(prev => ({ ...prev, takeProfit: e.target.checked }))}
-              size="small"
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={orderData.takeProfit}
+                  onChange={(e) => setOrderData(prev => ({ ...prev, takeProfit: e.target.checked }))}
+                  name="takeProfit"
+                  color="success"
+                />
+              }
+              label="TP"
             />
-          }
-          label="TP"
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={orderData.stopLoss}
-              onChange={(e) => setOrderData(prev => ({ ...prev, stopLoss: e.target.checked }))}
-              size="small"
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={orderData.stopLoss}
+                  onChange={(e) => setOrderData(prev => ({ ...prev, stopLoss: e.target.checked }))}
+                  name="stopLoss"
+                  color="error"
+                />
+              }
+              label="SL"
             />
-          }
-          label="SL"
-        />
-      </Box> */}
+          </Box>
+        </Box>
+      </Box>
 
       {/* TP/SL Price Inputs */}
-      {/* TODO: Exchange-specific params mapping */}
-      {/* {(orderData.takeProfit || orderData.stopLoss) && (
+      {(orderData.takeProfit || orderData.stopLoss) && (
         <Box sx={{ mb: 2 }}>
           {orderData.takeProfit && (
             <TextField
@@ -433,6 +533,11 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
               fullWidth
               size="small"
               sx={{ mb: 1 }}
+              slotProps={{
+                input: {
+                  endAdornment: <Typography variant="caption">{marketInfo?.quote || 'USDT'}</Typography>
+                }
+              }}
             />
           )}
           {orderData.stopLoss && (
@@ -443,10 +548,15 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
               onChange={(e) => handleInputChange('slPrice', e.target.value)}
               fullWidth
               size="small"
+              slotProps={{
+                input: {
+                  endAdornment: <Typography variant="caption">{marketInfo?.quote || 'USDT'}</Typography>
+                }
+              }}
             />
           )}
         </Box>
-      )} */}
+      )}
 
       <Divider sx={{ my: 2 }} />
 

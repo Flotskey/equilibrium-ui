@@ -59,10 +59,6 @@ export const useBalance = ({ exchangeId }: UseBalanceProps) => {
             `Fetching initial balance for ${exchangeId} via REST API`
           );
           const initialBalance = await fetchBalance(exchangeId);
-          console.log(
-            `Received initial balance for ${exchangeId}:`,
-            initialBalance
-          );
           setBalance(initialBalance);
           setHasInitialData(true);
         } catch (fetchError) {
@@ -79,10 +75,6 @@ export const useBalance = ({ exchangeId }: UseBalanceProps) => {
           socket,
           { exchangeId },
           (newBalance: CcxtBalances) => {
-            console.log(
-              `Received balance update for ${exchangeId}:`,
-              newBalance
-            );
             setBalance(newBalance);
             setLoading(false);
             setHasSubscribed(true);

@@ -358,12 +358,32 @@ export async function fetchTrades(dto: {
 }
 
 export async function fetchBalance(exchangeId: string): Promise<CcxtBalances> {
-  const url = `${BACKEND_URL}/exchanges/private/balance`;
-  return privateApiCall<CcxtBalances>(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ exchangeId }),
-  });
+  return privateApiCall<CcxtBalances>(
+    `${BACKEND_URL}/exchanges/private/balance`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ exchangeId }),
+    }
+  );
+}
+
+export async function cancelOrder(dto: {
+  exchangeId: string;
+  id: string;
+  symbol?: string;
+  params?: Record<string, any>;
+}): Promise<Record<string, any>> {
+  return privateApiCall<Record<string, any>>(
+    `${BACKEND_URL}/exchanges/private/order/cancel`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(dto),
+    }
+  );
 }

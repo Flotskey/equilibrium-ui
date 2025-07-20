@@ -111,8 +111,6 @@ export interface AuthState {
 export interface EncryptedCredentials {
   exchangeId: string;
   encryptedData: string;
-  iv: string;
-  salt: string;
   createdAt: number;
   updatedAt: number;
 }

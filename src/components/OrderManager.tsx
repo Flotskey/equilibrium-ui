@@ -1,8 +1,9 @@
 import { useNotify } from '@/components/NotificationProvider';
 import { usePrivateConnection } from '@/hooks';
+import { cancelOrder } from '@/services/api';
 import { CcxtOrder, CcxtPosition } from '@/services/types';
 import { getPrivateStreamingSocket, watchOrders, watchPositions } from '@/services/ws-api';
-import { Box, Paper, Tab, Tabs } from '@mui/material';
+import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { ExchangeCredentialsModal } from './credentials/ExchangeCredentialsModal';
 import { LockedState } from './credentials/LockedState';
@@ -30,8 +31,6 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
   // Refs for cleanup functions
   const ordersCleanupRef = useRef<(() => void) | null>(null);
   const positionsCleanupRef = useRef<(() => void) | null>(null);
-
-
 
   // WebSocket streaming for orders and positions - only start when connected
   useEffect(() => {
@@ -107,9 +106,29 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
     setModalOpen(true);
   };
 
-  const handleCancelOrder = (orderId: string) => {
-    // TODO: Implement cancel order functionality
-    console.log('Cancel order:', orderId);
+  const handleCancelOrder = async (orderId: string) => {
+    if (!selectedExchange) {
+      notify({ message: 'No exchange selected', severity: 'error' });
+      return;
+    }
+
+    try {
+      const result = await cancelOrder({
+        exchangeId: selectedExchange,
+        id: orderId,
+        symbol: selectedSymbol || undefined
+      });
+
+      notify({ 
+        message: `Order ${orderId} cancelled successfully`, 
+        severity: 'success' 
+      });
+      
+      console.log('Cancel order result:', result);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to cancel order';
+      notify({ message: errorMessage, severity: 'error' });
+    }
   };
 
   // If no exchange is selected or no credentials, show locked state
@@ -137,7 +156,6 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
             open={modalOpen}
             onClose={() => setModalOpen(false)}
             exchangeId={selectedExchange}
-            onCredentialsSaved={() => {}}
           />
         )}
       </>
@@ -159,20 +177,52 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
             onCancelOrder={handleCancelOrder}
           />
         )}
-        {tab === 1 && selectedExchange && (
+        {tab === 1 && selectedExchange && selectedSymbol && isConnected && (
           <OrderHistory 
             exchangeId={selectedExchange} 
-            symbol={selectedSymbol || undefined}
+            symbol={selectedSymbol}
           />
         )}
-        {tab === 2 && selectedExchange && (
+        {tab === 2 && selectedExchange && selectedSymbol && isConnected && (
           <TradeHistory 
             exchangeId={selectedExchange} 
-            symbol={selectedSymbol || undefined}
+            symbol={selectedSymbol}
           />
         )}
         {tab === 3 && (
           <Positions positions={positions} />
+        )}
+        
+        {/* Show message when symbol is not selected for history tabs */}
+        {tab === 1 && selectedExchange && !selectedSymbol && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Typography variant="body1" color="text.secondary">
+              Please select a symbol to view order history
+            </Typography>
+          </Box>
+        )}
+        {tab === 2 && selectedExchange && !selectedSymbol && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Typography variant="body1" color="text.secondary">
+              Please select a symbol to view trade history
+            </Typography>
+          </Box>
+        )}
+        
+        {/* Show message when connection is not established for history tabs */}
+        {tab === 1 && selectedExchange && selectedSymbol && !isConnected && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Typography variant="body1" color="text.secondary">
+              Connecting to exchange... Please wait
+            </Typography>
+          </Box>
+        )}
+        {tab === 2 && selectedExchange && selectedSymbol && !isConnected && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Typography variant="body1" color="text.secondary">
+              Connecting to exchange... Please wait
+            </Typography>
+          </Box>
         )}
       </Box>
     </Paper>

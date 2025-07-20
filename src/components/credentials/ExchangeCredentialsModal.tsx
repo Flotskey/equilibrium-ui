@@ -26,7 +26,7 @@ interface ExchangeCredentialsModalProps {
   open: boolean;
   onClose: () => void;
   exchangeId: string;
-  onCredentialsSaved: () => void;
+  onCredentialsSaved?: () => void;
 }
 
 const CREDENTIAL_FIELDS = [
@@ -41,7 +41,7 @@ const CREDENTIAL_FIELDS = [
   { key: 'token', label: 'Token', type: 'password' },
 ] as const;
 
-const steps = ['Enter Credentials', 'Set Encryption Password'];
+const steps = ['Enter Credentials', 'Set Encryption Password', 'Enter Encryption Password'];
 
 export const ExchangeCredentialsModal = ({
   open,
@@ -71,8 +71,8 @@ export const ExchangeCredentialsModal = ({
       const hasEncryptedCredentials = CredentialEncryptionService.hasCredentials(exchangeId);
       
       if (hasEncryptedCredentials) {
-        // Skip to password step if we have encrypted credentials
-        setActiveStep(1);
+        // Skip to password entry step (step 3) if we have encrypted credentials
+        setActiveStep(2);
         setEncryptionPassword('');
         
         // Check if we have a stored password for this exchange
@@ -84,10 +84,9 @@ export const ExchangeCredentialsModal = ({
               CredentialEncryptionService.decryptCredentials(exchangeId, storedPassword).then(decryptedCredentials => {
                 if (decryptedCredentials) {
                   setEncryptionPassword(storedPassword);
-                  // Set the decrypted credentials in state for auto-save
+                  // Set the decrypted credentials in state for display purposes only
+                  // Don't auto-save - let user decide if they want to update
                   setCredentials(decryptedCredentials);
-                  // Auto-save with stored password
-                  handleSaveCredentialsWithPassword(storedPassword);
                 }
               });
             } else {
@@ -165,7 +164,7 @@ export const ExchangeCredentialsModal = ({
       storePassword(exchangeId, password);
       
       notify({ message: 'Credentials saved successfully', severity: 'success' });
-      onCredentialsSaved();
+      onCredentialsSaved?.();
       onClose();
       
       // Delay the refresh to prevent immediate connection test
@@ -202,6 +201,47 @@ export const ExchangeCredentialsModal = ({
     await handleSaveCredentialsWithPassword(encryptionPassword);
   };
 
+  const handleUnlockCredentials = async () => {
+    if (!encryptionPassword.trim()) {
+      setError('Please enter your encryption password');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Try to decrypt credentials with the provided password
+      const decryptedCredentials = await CredentialEncryptionService.decryptCredentials(exchangeId, encryptionPassword);
+      
+      if (!decryptedCredentials || Object.keys(decryptedCredentials).length === 0) {
+        setError('Invalid encryption password. Please try again.');
+        return;
+      }
+
+      // Store the password in the store for future use
+      storePassword(exchangeId, encryptionPassword);
+      
+      // Set the decrypted credentials in state
+      setCredentials(decryptedCredentials);
+      
+      notify({ message: 'Credentials unlocked successfully', severity: 'success' });
+      onCredentialsSaved?.();
+      onClose();
+      
+      // Delay the refresh to prevent immediate connection test
+      setTimeout(() => {
+        refreshAllCredentials();
+      }, 100);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to unlock credentials';
+      setError(errorMessage);
+      notify({ message: errorMessage, severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleClose = () => {
     if (!loading) {
       onClose();
@@ -215,6 +255,8 @@ export const ExchangeCredentialsModal = ({
         handleCreateConnection();
       } else if (activeStep === 1) {
         handleSaveCredentials();
+      } else if (activeStep === 2) {
+        handleUnlockCredentials();
       }
     }
   };
@@ -247,7 +289,10 @@ export const ExchangeCredentialsModal = ({
   const renderPasswordStep = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Enter a password to encrypt your exchange credentials. This password will be required to access your credentials in the future.
+        {Object.keys(credentials).length > 0 
+          ? "Enter your encryption password to update your existing exchange credentials."
+          : "Enter a password to encrypt your exchange credentials. This password will be required to access your credentials in the future."
+        }
       </Typography>
       
       <TextField
@@ -274,6 +319,40 @@ export const ExchangeCredentialsModal = ({
       
       <Typography variant="caption" color="text.secondary">
         ⚠️ Remember this password! It cannot be recovered if lost.
+      </Typography>
+    </Box>
+  );
+
+  const renderUnlockStep = () => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Enter your encryption password to unlock your existing exchange credentials.
+      </Typography>
+      
+      <TextField
+        label="Encryption Password"
+        type={showPassword ? 'text' : 'password'}
+        value={encryptionPassword}
+        onChange={(e) => setEncryptionPassword(e.target.value)}
+        fullWidth
+        required
+        disabled={loading}
+        slotProps={{
+          input: {
+            endAdornment: (
+              <IconButton
+                onClick={() => setShowPassword(!showPassword)}
+                edge="end"
+              >
+                {showPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            ),
+          }
+        }}
+      />
+      
+      <Typography variant="caption" color="text.secondary">
+        Enter the password you used to encrypt your credentials.
       </Typography>
     </Box>
   );
@@ -319,6 +398,7 @@ export const ExchangeCredentialsModal = ({
 
         {activeStep === 0 && renderCredentialFields()}
         {activeStep === 1 && renderPasswordStep()}
+        {activeStep === 2 && renderUnlockStep()}
       </DialogContent>
 
       <DialogActions>
@@ -343,6 +423,16 @@ export const ExchangeCredentialsModal = ({
             disabled={loading || !encryptionPassword.trim()}
           >
             Apply
+          </Button>
+        )}
+
+        {activeStep === 2 && (
+          <Button
+            onClick={handleUnlockCredentials}
+            variant="contained"
+            disabled={loading || !encryptionPassword.trim()}
+          >
+            Unlock
           </Button>
         )}
       </DialogActions>
