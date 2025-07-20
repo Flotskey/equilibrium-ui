@@ -103,7 +103,10 @@ const PriceChart = ({ exchangeId, symbol }: TradingChartProps) => {
       },
       grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
       rightPriceScale: { borderColor: '#444' },
-      timeScale: { borderColor: '#444' },
+      timeScale: { 
+        borderColor: '#444',
+        rightOffset: 12, // Add gap between latest candle and right edge (like TradingView)
+      },
     });
     chartRef.current = chart;
     const candleSeries = chart.addSeries(CandlestickSeries, {
