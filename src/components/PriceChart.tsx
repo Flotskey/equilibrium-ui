@@ -38,6 +38,7 @@ const PriceChart = ({ exchangeId, symbol }: TradingChartProps) => {
   const [handlePositions, setHandlePositions] = useState<{ entry: number; sl: number; tp: number }>({ entry: 0, sl: 0, tp: 0 });
   const dragYRef = useRef<number | null>(null);
   const candleDataRef = useRef<CandlestickData<Time>[]>([]); // holds the current candles
+  const currentTimeframeRef = useRef<string>(''); // track current timeframe
   const [loading, setLoading] = useState(true);
   const [pricePrecision, setPricePrecision] = useState(6); // default to 6
 
@@ -192,11 +193,12 @@ const PriceChart = ({ exchangeId, symbol }: TradingChartProps) => {
     };
   }, [exchangeId, symbol, selectedTimeframeIdx, timeframes]);
 
-  // WebSocket subscription
+  // WebSocket subscription - include timeframe in dependencies but handle efficiently
   useEffect(() => {
     if (!exchangeId || !symbol || !timeframes.length) return;
     const tf = timeframes[selectedTimeframeIdx]?.label || timeframes[0]?.label;
     if (!tf) return;
+    
     const socket = getStreamingSocket();
     const handleCandle = (msg: OhlcvWsMessage) => {
       const c = mapCandle(msg.candle);
@@ -217,11 +219,17 @@ const PriceChart = ({ exchangeId, symbol }: TradingChartProps) => {
       candleDataRef.current = dedupeAndSort(arr);
       candleSeriesRef.current?.setData([...candleDataRef.current]);
     };
+    
+    console.log(`Setting up WebSocket subscription for ${exchangeId}/${symbol}/${tf}`);
+    
+    // Subscribe to WebSocket stream
     const unsub = watchOhlcv(socket, { exchangeId, symbol, timeframe: tf }, handleCandle);
+    
     return () => {
+      console.log(`Cleaning up WebSocket subscription for ${exchangeId}/${symbol}/${tf}`);
       unsub();
     };
-  }, [exchangeId, symbol, selectedTimeframeIdx, timeframes]);
+  }, [exchangeId, symbol, selectedTimeframeIdx, timeframes]); // Include timeframe dependencies
 
   // Update price lines and handle positions when prices or timeframe change
   useEffect(() => {

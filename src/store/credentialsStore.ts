@@ -204,10 +204,15 @@ export const useCredentialsStore = create<CredentialsState>()(
         },
 
         startConnectionRefresh: (exchangeId: string) => {
-          // Clear existing interval if any
+          // Prevent duplicate connection refreshes for the same exchange
           if (connectionIntervals[exchangeId]) {
-            clearInterval(connectionIntervals[exchangeId]);
+            console.log(
+              `Connection refresh already active for ${exchangeId}, skipping duplicate start`
+            );
+            return;
           }
+
+          console.log(`Starting connection refresh for ${exchangeId}`);
 
           // Test connection immediately
           get().createConnection(exchangeId);

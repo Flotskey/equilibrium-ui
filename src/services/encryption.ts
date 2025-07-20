@@ -12,37 +12,49 @@ export class CredentialEncryptionService {
     credentials: ExchangeCredentialsDto,
     password: string
   ): void {
-    // Generate salt and IV
-    const salt = CryptoJS.lib.WordArray.random(128 / 8);
-    const iv = CryptoJS.lib.WordArray.random(128 / 8);
+    try {
+      // Generate salt and IV
+      const salt = CryptoJS.lib.WordArray.random(128 / 8);
+      const iv = CryptoJS.lib.WordArray.random(128 / 8);
 
-    // Derive key from password and salt
-    const key = CryptoJS.PBKDF2(password, salt, {
-      keySize: 256 / 32,
-      iterations: 1000,
-    });
+      // Derive key from password and salt
+      const key = CryptoJS.PBKDF2(password, salt, {
+        keySize: 256 / 32,
+        iterations: 10000, // Increased iterations for better security
+      });
 
-    // Encrypt the credentials
-    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(credentials), key, {
-      iv: iv,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7,
-    });
+      // Convert credentials to JSON string
+      const credentialsString = JSON.stringify(credentials);
 
-    // Create encrypted credentials object
-    const encryptedCreds: EncryptedCredentials = {
-      exchangeId,
-      encryptedData: encrypted.toString(),
-      iv: iv.toString(),
-      salt: salt.toString(),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
+      // Encrypt the credentials
+      const encrypted = CryptoJS.AES.encrypt(credentialsString, key, {
+        iv: iv,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7,
+      });
 
-    // Store in localStorage
-    const existing = this.getAllEncryptedCredentials();
-    existing[exchangeId] = encryptedCreds;
-    localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(existing));
+      // Create encrypted credentials object
+      const encryptedCreds: EncryptedCredentials = {
+        exchangeId,
+        encryptedData: encrypted.toString(),
+        iv: iv.toString(CryptoJS.enc.Hex),
+        salt: salt.toString(CryptoJS.enc.Hex),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      // Store in localStorage
+      const existing = this.getAllEncryptedCredentials();
+      existing[exchangeId] = encryptedCreds;
+      localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(existing));
+    } catch (error) {
+      console.error("Failed to encrypt credentials:", error);
+      throw new Error(
+        `Encryption failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
   }
 
   /**
@@ -54,34 +66,85 @@ export class CredentialEncryptionService {
   ): ExchangeCredentialsDto | null {
     try {
       const encryptedCreds = this.getEncryptedCredentials(exchangeId);
-      if (!encryptedCreds) return null;
+      if (!encryptedCreds) {
+        console.log("No encrypted credentials found for exchange:", exchangeId);
+        return null;
+      }
+
+      // Parse salt and IV from hex strings
+      const salt = CryptoJS.enc.Hex.parse(encryptedCreds.salt);
+      const iv = CryptoJS.enc.Hex.parse(encryptedCreds.iv);
 
       // Recreate key from password and salt
-      const key = CryptoJS.PBKDF2(
-        password,
-        CryptoJS.enc.Hex.parse(encryptedCreds.salt),
-        {
-          keySize: 256 / 32,
-          iterations: 1000,
-        }
-      );
+      const key = CryptoJS.PBKDF2(password, salt, {
+        keySize: 256 / 32,
+        iterations: 10000, // Must match encryption iterations
+      });
 
       // Decrypt
       const decrypted = CryptoJS.AES.decrypt(
         encryptedCreds.encryptedData,
         key,
         {
-          iv: CryptoJS.enc.Hex.parse(encryptedCreds.iv),
+          iv: iv,
           mode: CryptoJS.mode.CBC,
           padding: CryptoJS.pad.Pkcs7,
         }
       );
 
       const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
-      return JSON.parse(decryptedString);
+
+      if (!decryptedString) {
+        console.error(
+          "Decryption resulted in empty string - likely wrong password"
+        );
+        return null;
+      }
+
+      const parsedCredentials = JSON.parse(decryptedString);
+
+      return parsedCredentials;
     } catch (error) {
       console.error("Failed to decrypt credentials:", error);
+      if (error instanceof SyntaxError) {
+        console.error(
+          "JSON parsing failed - likely wrong password or corrupted data"
+        );
+      }
       return null;
+    }
+  }
+
+  /**
+   * Test encryption/decryption with sample data
+   */
+  static testEncryption(password: string): boolean {
+    try {
+      const testCredentials: ExchangeCredentialsDto = {
+        apiKey: "test-api-key",
+        secret: "test-secret",
+        uid: "test-uid",
+      };
+
+      console.log("Testing encryption with sample data:", testCredentials);
+
+      // Encrypt
+      this.encryptAndStore("test-exchange", testCredentials, password);
+
+      // Decrypt
+      const decrypted = this.decryptCredentials("test-exchange", password);
+
+      // Clean up test data
+      this.removeCredentials("test-exchange");
+
+      const success =
+        JSON.stringify(decrypted) === JSON.stringify(testCredentials);
+      console.log("Encryption test result:", success);
+
+      return success;
+    } catch (error) {
+      console.error("Encryption test failed:", error);
+      return false;
     }
   }
 
@@ -129,5 +192,59 @@ export class CredentialEncryptionService {
    */
   static clearAllCredentials(): void {
     localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
+  }
+
+  /**
+   * Migrate old credentials format or clear corrupted data
+   * This should only be called once during app initialization
+   */
+  static migrateCredentials(): void {
+    try {
+      console.log("Starting credentials migration...");
+
+      const all = this.getAllEncryptedCredentials();
+      const exchanges = Object.keys(all);
+
+      if (exchanges.length === 0) {
+        console.log("No credentials to migrate");
+        return;
+      }
+
+      console.log("Found credentials for exchanges:", exchanges);
+
+      // Check if migration has already been done
+      const migrationKey = "equilibrium_credentials_migrated";
+      const hasMigrated = localStorage.getItem(migrationKey);
+
+      if (hasMigrated) {
+        console.log("Migration already completed, skipping");
+        return;
+      }
+
+      // For now, clear all existing credentials to force re-entry
+      // This ensures we use the new encryption format
+      this.clearAllCredentials();
+      console.log("Cleared all existing credentials for migration");
+
+      // Mark migration as completed
+      localStorage.setItem(migrationKey, "true");
+    } catch (error) {
+      console.error("Migration failed:", error);
+      // If migration fails, clear everything to be safe
+      this.clearAllCredentials();
+    }
+  }
+
+  /**
+   * Validate that credentials can be decrypted with the given password
+   */
+  static validateCredentials(exchangeId: string, password: string): boolean {
+    try {
+      const decrypted = this.decryptCredentials(exchangeId, password);
+      return decrypted !== null && Object.keys(decrypted).length > 0;
+    } catch (error) {
+      console.error("Credential validation failed:", error);
+      return false;
+    }
   }
 }

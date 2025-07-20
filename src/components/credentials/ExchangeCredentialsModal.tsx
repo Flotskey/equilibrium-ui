@@ -5,20 +5,20 @@ import { CcxtRequiredCredentials, ExchangeCredentialsDto } from '@/services/type
 import { useCredentialsStore } from '@/store/credentialsStore';
 import { Lock, Visibility, VisibilityOff } from '@mui/icons-material';
 import {
-    Alert,
-    Box,
-    Button,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    IconButton,
-    Step,
-    StepLabel,
-    Stepper,
-    TextField,
-    Typography
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Step,
+  StepLabel,
+  Stepper,
+  TextField,
+  Typography
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 
@@ -78,14 +78,16 @@ export const ExchangeCredentialsModal = ({
         // Check if we have a stored password for this exchange
         const storedPassword = getEncryptionPassword(exchangeId);
         if (storedPassword) {
-          // Validate stored password by attempting to decrypt credentials
-          const decryptedCredentials = CredentialEncryptionService.decryptCredentials(exchangeId, storedPassword);
-          if (decryptedCredentials) {
-            setEncryptionPassword(storedPassword);
-            // Set the decrypted credentials in state for auto-save
-            setCredentials(decryptedCredentials);
-            // Auto-save with stored password
-            handleSaveCredentialsWithPassword(storedPassword);
+          // Validate stored password using the new validation function
+          if (CredentialEncryptionService.validateCredentials(exchangeId, storedPassword)) {
+            const decryptedCredentials = CredentialEncryptionService.decryptCredentials(exchangeId, storedPassword);
+            if (decryptedCredentials) {
+              setEncryptionPassword(storedPassword);
+              // Set the decrypted credentials in state for auto-save
+              setCredentials(decryptedCredentials);
+              // Auto-save with stored password
+              handleSaveCredentialsWithPassword(storedPassword);
+            }
           } else {
             // Stored password is invalid, clear it and let user enter new one
             setEncryptionPassword('');
@@ -159,12 +161,15 @@ export const ExchangeCredentialsModal = ({
       // Store the password in the store for future use
       storePassword(exchangeId, password);
       
-      // Refresh the credentials store to update all components
-      refreshAllCredentials();
-      
       notify({ message: 'Credentials saved successfully', severity: 'success' });
       onCredentialsSaved();
       onClose();
+      
+      // Delay the refresh to prevent immediate connection test
+      // This prevents duplicate createConnection calls
+      setTimeout(() => {
+        refreshAllCredentials();
+      }, 100);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save credentials';
       setError(errorMessage);
@@ -183,9 +188,8 @@ export const ExchangeCredentialsModal = ({
     // Only validate password if there are encrypted credentials in localStorage
     const hasEncryptedCredentials = CredentialEncryptionService.hasCredentials(exchangeId);
     if (hasEncryptedCredentials) {
-      // Validate password by attempting to decrypt credentials
-      const decryptedCredentials = CredentialEncryptionService.decryptCredentials(exchangeId, encryptionPassword);
-      if (!decryptedCredentials) {
+      // Validate password using the new validation function
+      if (!CredentialEncryptionService.validateCredentials(exchangeId, encryptionPassword)) {
         setError('Invalid encryption password. Please try again.');
         return;
       }

@@ -3,6 +3,7 @@ import { NotificationProvider, useNotify } from "@/components/NotificationProvid
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AuthPage from "@/pages/AuthPage";
 import TradingPage from "@/pages/TradingPage";
+import { CredentialEncryptionService } from "@/services/encryption";
 import { Box, CircularProgress, createTheme, CssBaseline, ThemeProvider } from "@mui/material";
 import { useEffect } from "react";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
@@ -40,6 +41,11 @@ function NotifyBridge() {
 
 const AppContent = () => {
   const { user, loading } = useAuth();
+
+  // Run credentials migration once on app initialization
+  useEffect(() => {
+    CredentialEncryptionService.migrateCredentials();
+  }, []);
 
   // Show loading while checking auth state
   if (loading) {

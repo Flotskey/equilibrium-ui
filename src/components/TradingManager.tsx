@@ -1,7 +1,7 @@
 import { useNotify } from '@/components/NotificationProvider';
+import { usePrivateConnection } from '@/hooks';
 import { createOrder, fetchMarket } from '@/services/api';
 import { CcxtMarket } from '@/services/types';
-import { useCredentialsStore } from '@/store/credentialsStore';
 import { TrendingDown, TrendingUp } from '@mui/icons-material';
 import {
   Box,
@@ -46,16 +46,8 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
   const [orderLoading, setOrderLoading] = useState(false);
   const [marketInfo, setMarketInfo] = useState<CcxtMarket | null>(null);
   
-  // Use Zustand store for credentials state
-  const { 
-    credentialsMap, 
-    checkCredentials, 
-    setHasCredentials, 
-    startConnectionRefresh, 
-    stopConnectionRefresh 
-  } = useCredentialsStore();
-  
-  const hasCredentials = selectedExchange ? credentialsMap[selectedExchange] || false : false;
+  // Use custom hook for connection management
+  const { hasCredentials } = usePrivateConnection({ exchangeId: selectedExchange });
   const notify = useNotify();
 
   // Order form state
@@ -99,40 +91,15 @@ const TradingManager = ({ selectedExchange, selectedSymbol }: TradingManagerProp
     fetchMarketInfo();
   }, [selectedExchange, selectedSymbol, notify]);
 
-  // Check if credentials exist for the selected exchange and manage connection refresh
-  useEffect(() => {
-    if (selectedExchange) {
-      const hasCreds = checkCredentials(selectedExchange);
-      if (hasCreds !== hasCredentials) {
-        setHasCredentials(selectedExchange, hasCreds);
-      }
-      
-      // Start connection refresh if credentials are available
-      if (hasCreds) {
-        startConnectionRefresh(selectedExchange);
-      } else {
-        stopConnectionRefresh(selectedExchange);
-      }
-    }
-    
-    // Cleanup on unmount or exchange change
-    return () => {
-      if (selectedExchange) {
-        stopConnectionRefresh(selectedExchange);
-      }
-    };
-  }, [selectedExchange, checkCredentials, setHasCredentials, hasCredentials, startConnectionRefresh, stopConnectionRefresh]);
+
 
   const handleUnlock = () => {
     setModalOpen(true);
   };
 
   const handleCredentialsSaved = () => {
-    if (selectedExchange) {
-      setHasCredentials(selectedExchange, true);
-      // Start connection refresh after credentials are saved
-      startConnectionRefresh(selectedExchange);
-    }
+    // Connection refresh is now handled automatically by the usePrivateConnection hook
+    // when credentials are saved and the component re-renders
   };
 
   // Handle order side change (buy/sell)

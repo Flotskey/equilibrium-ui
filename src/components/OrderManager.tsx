@@ -1,7 +1,7 @@
 import { useNotify } from '@/components/NotificationProvider';
+import { usePrivateConnection } from '@/hooks';
 import { CcxtOrder, CcxtPosition } from '@/services/types';
 import { getPrivateStreamingSocket, watchOrders, watchPositions } from '@/services/ws-api';
-import { useCredentialsStore } from '@/store/credentialsStore';
 import { Box, Paper, Tab, Tabs } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { ExchangeCredentialsModal } from './credentials/ExchangeCredentialsModal';
@@ -24,47 +24,14 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
   const [positions, setPositions] = useState<CcxtPosition[]>([]);
   const notify = useNotify();
   
-  // Use Zustand store for credentials state
-  const { 
-    credentialsMap, 
-    connectionStatus,
-    checkCredentials, 
-    setHasCredentials,
-    startConnectionRefresh,
-    stopConnectionRefresh
-  } = useCredentialsStore();
-  const hasCredentials = selectedExchange ? credentialsMap[selectedExchange] || false : false;
-  const isConnected = selectedExchange ? connectionStatus[selectedExchange] || false : false;
+  // Use custom hook for connection management
+  const { hasCredentials, isConnected } = usePrivateConnection({ exchangeId: selectedExchange });
 
   // Refs for cleanup functions
   const ordersCleanupRef = useRef<(() => void) | null>(null);
   const positionsCleanupRef = useRef<(() => void) | null>(null);
 
-  // Check if credentials exist for the selected exchange
-  useEffect(() => {
-    if (selectedExchange) {
-      const hasCreds = checkCredentials(selectedExchange);
-      if (hasCreds !== hasCredentials) {
-        setHasCredentials(selectedExchange, hasCreds);
-      }
-    }
-  }, [selectedExchange, checkCredentials, setHasCredentials, hasCredentials]);
 
-  // Start connection refresh when credentials are available
-  useEffect(() => {
-    if (selectedExchange && hasCredentials) {
-      startConnectionRefresh(selectedExchange);
-    } else if (selectedExchange) {
-      stopConnectionRefresh(selectedExchange);
-    }
-
-    // Cleanup on unmount or when exchange changes
-    return () => {
-      if (selectedExchange) {
-        stopConnectionRefresh(selectedExchange);
-      }
-    };
-  }, [selectedExchange, hasCredentials, startConnectionRefresh, stopConnectionRefresh]);
 
   // WebSocket streaming for orders and positions - only start when connected
   useEffect(() => {
@@ -140,12 +107,6 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
     setModalOpen(true);
   };
 
-  const handleCredentialsSaved = () => {
-    if (selectedExchange) {
-      setHasCredentials(selectedExchange, true);
-    }
-  };
-
   const handleCancelOrder = (orderId: string) => {
     // TODO: Implement cancel order functionality
     console.log('Cancel order:', orderId);
@@ -176,14 +137,13 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
             open={modalOpen}
             onClose={() => setModalOpen(false)}
             exchangeId={selectedExchange}
-            onCredentialsSaved={handleCredentialsSaved}
+            onCredentialsSaved={() => {}}
           />
         )}
       </>
     );
   }
 
-  // Show normal order manager when credentials are available
   return (
     <Paper sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
