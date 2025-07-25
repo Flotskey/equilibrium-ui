@@ -2,6 +2,9 @@ import { BACKEND_URL } from "@/config";
 import { auth } from "@/services/firebase";
 import {
   CcxtBalances,
+  CcxtLeverage,
+  CcxtLeverageTier,
+  CcxtMarginMode,
   CcxtMarket,
   CcxtRequiredCredentials,
   CcxtTicker,
@@ -370,20 +373,93 @@ export async function fetchBalance(exchangeId: string): Promise<CcxtBalances> {
   );
 }
 
-export async function cancelOrder(dto: {
+export const cancelOrder = async (params: {
   exchangeId: string;
   id: string;
   symbol?: string;
+}): Promise<any> => {
+  return privateApiCall(`${BACKEND_URL}/exchanges/private/orders/cancel`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+};
+
+// Margin Mode Operations
+export const setMarginMode = async (params: {
+  exchangeId: string;
+  symbol: string;
+  marginMode: "isolated" | "cross";
   params?: Record<string, any>;
-}): Promise<Record<string, any>> {
-  return privateApiCall<Record<string, any>>(
-    `${BACKEND_URL}/exchanges/private/order/cancel`,
+}): Promise<Record<string, any>> => {
+  return privateApiCall(`${BACKEND_URL}/exchanges/private/margin-mode/set`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+};
+
+export const fetchMarginMode = async (params: {
+  exchangeId: string;
+  symbol: string;
+  params?: Record<string, any>;
+}): Promise<CcxtMarginMode> => {
+  return privateApiCall(`${BACKEND_URL}/exchanges/private/margin-mode/fetch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+};
+
+// Leverage Operations
+export const setLeverage = async (params: {
+  exchangeId: string;
+  symbol: string;
+  leverage: number;
+  params?: Record<string, any>;
+}): Promise<Record<string, any>> => {
+  return privateApiCall(`${BACKEND_URL}/exchanges/private/leverage/set`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+};
+
+export const fetchLeverage = async (params: {
+  exchangeId: string;
+  symbol: string;
+  params?: Record<string, any>;
+}): Promise<CcxtLeverage> => {
+  return privateApiCall(`${BACKEND_URL}/exchanges/private/leverage/fetch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+};
+
+export const fetchLeverageTiers = async (params: {
+  exchangeId: string;
+  symbols?: string[];
+  params?: Record<string, any>;
+}): Promise<CcxtLeverageTier[]> => {
+  return privateApiCall(
+    `${BACKEND_URL}/exchanges/private/leverage-tiers/fetch`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(dto),
+      body: JSON.stringify(params),
     }
   );
-}
+};

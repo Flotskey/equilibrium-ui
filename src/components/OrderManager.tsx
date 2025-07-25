@@ -132,20 +132,24 @@ const OrderManager = ({ tab, setTab, selectedExchange, selectedSymbol }: OrderMa
   };
 
   // If no exchange is selected or no credentials, show locked state
-  if (!selectedExchange || !hasCredentials) {
+  if (!selectedExchange || !hasCredentials || !isConnected) {
     return (
       <>
         <LockedState
           title="Order Manager Locked"
           description={
-            selectedExchange 
-              ? "Connect your exchange credentials to view orders, positions, and trading history."
-              : "Select an exchange to unlock order management features."
+            !selectedExchange 
+              ? "Select an exchange to unlock trading features."
+              : !hasCredentials 
+                ? "Connect your exchange credentials to place orders and manage trades."
+                : "Connecting to exchange... Please wait for the connection to be established."
           }
           buttonText={
-            selectedExchange 
-              ? "Connect Exchange" 
-              : "Select Exchange First"
+            !selectedExchange 
+              ? "Select Exchange First"
+              : !hasCredentials 
+                ? "Connect Exchange" 
+                : "Connecting..."
           }
           onUnlock={handleUnlock}
           disabled={!selectedExchange}

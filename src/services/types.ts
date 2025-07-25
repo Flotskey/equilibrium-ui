@@ -237,3 +237,60 @@ export interface CcxtBalance {
 }
 
 export type CcxtBalances = Record<string, CcxtBalance>;
+
+export interface CcxtLeverage {
+  info: any;
+  symbol: string;
+  marginMode: "isolated" | "cross" | string;
+  longLeverage: number;
+  shortLeverage: number;
+}
+
+export interface CcxtMarginMode {
+  info: any;
+  symbol: string;
+  marginMode: "isolated" | "cross";
+  [key: string]: any;
+}
+
+export interface SetMarginModeDto {
+  exchangeId: string;
+  symbol: string;
+  marginMode: "isolated" | "cross";
+  params?: Record<string, any>;
+}
+
+export interface FetchMarginModeDto {
+  exchangeId: string;
+  symbol: string;
+  params?: Record<string, any>;
+}
+
+export interface SetLeverageDto {
+  exchangeId: string;
+  symbol: string;
+  leverage: number;
+  params?: Record<string, any>;
+}
+
+export interface FetchLeverageDto {
+  exchangeId: string;
+  symbol: string;
+  params?: Record<string, any>;
+}
+
+export interface CcxtLeverageTier {
+  tier: number;
+  currency: string;
+  minNotional: number;
+  maxNotional: number;
+  maintenanceMarginRate: number;
+  maxLeverage: number;
+  info: any;
+}
+
+export interface FetchLeverageTiersDto {
+  exchangeId: string;
+  symbols?: string[];
+  params?: Record<string, any>;
+}
